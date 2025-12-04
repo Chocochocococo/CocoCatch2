@@ -4505,6 +4505,16 @@
         }
         
         await triggerImageConversion({ splitMode, maxHeight: MAX_HEIGHT });
+        // 再次強制將選取訊息內的圖片轉為 Base64，確保 Markdown 也使用 data URL
+        for (const msg of selectedMessages) {
+          try {
+            await replaceImagesWithBase64(msg.element);
+          } catch (err) {
+            console.error("Grok 圖片轉 Base64 失敗：", err);
+          }
+          const contentNode = msg.element.querySelector(".response-content-markdown") || msg.element;
+          msg.markdown = getMarkdownFromMessage(contentNode, msg.role === "user");
+        }
         
         const sanitizedData = selectedMessages.map(m => {
           return {
