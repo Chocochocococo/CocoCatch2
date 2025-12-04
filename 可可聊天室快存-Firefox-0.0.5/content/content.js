@@ -3906,6 +3906,27 @@
         }
       });
 
+      /*****************************************
+       * 注入控制面板到指定位置
+       *****************************************/
+      let container = document.getElementById("mistral-exporter-container");
+      if (!container) {
+        container = document.createElement("div");
+        container.id = "mistral-exporter-container";
+        container.style.position = "fixed";
+        container.style.right = "100px"; 
+        container.style.bottom = "25px"; 
+        container.style.zIndex = 9999;
+        document.body.appendChild(container);
+      }
+      container.innerHTML = "";
+      container.style.display = "flex";
+      container.style.flexDirection = "column";
+      container.style.gap = "4px";
+      
+      // 全域選擇設定
+      let storedFilter = "all";
+
       /********************
        * 第一排：Select row
        ********************/
