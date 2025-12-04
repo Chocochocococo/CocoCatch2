@@ -1,7 +1,7 @@
 /* background/image.js */
 (function (root, factory) {
   if (typeof marked !== "undefined") {
-    marked.setOptions({ mangle:false, headerIds:false, sanitize:false });
+    marked.setOptions({ mangle:false, headerIds:false, sanitize:false, breaks:true });
   }
   if (typeof define === 'function' && define.amd) {
     define(['./utils'], factory);
