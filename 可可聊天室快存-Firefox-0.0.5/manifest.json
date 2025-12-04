@@ -1,0 +1,42 @@
+{
+  "manifest_version": 2,
+  "name": "可可聊天室快存 ~CocoCatch~",
+  "version": "0.0.5",
+  "description": "快速匯出GPT、Gemini與Mistral的對話內容，支援PNG、TXT、Markdown、SillyTavern JSONL等格式。",
+  "homepage_url": "https://github.com/Chocochocococo/CocoCatch2",
+  "permissions": ["<all_urls>", "storage", "activeTab", "tabs", "downloads"],
+  "background": {
+    "scripts": [
+      "UMD/marked.umd.js",
+      "UMD/jszip.min.js",
+      "UMD/html2canvas.min.js",
+      "UMD/turndown.umd.js",
+      "UMD/turndown-plugin-gfm.js",
+      "background/utils.js",
+      "background/image.js",
+      "background/markdown.js",
+      "background/storage.js",
+      "background/silly.js",
+      "background/background.js"]
+  },
+  "web_accessible_resources": [
+    "icon/*.png"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*","https://gemini.google.com/*","https://chat.mistral.ai/*","https://claude.ai/*"], 
+      "js": [
+        "UMD/marked.umd.js",
+        "UMD/turndown.umd.js",
+        "UMD/turndown-plugin-gfm.js",
+        "content/content.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "browser_action": {
+    "default_icon": "icon/icon.png",
+    "default_title": "可可聊天室快存 ~CocoCatch~"
+  },
+  "icons": {"64": "icon/icon.png"}
+}
