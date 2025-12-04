@@ -1,6 +1,9 @@
 # 可可聊天室快存～CocoCatch～
 
 ## 版本更新資訊
+2025/12/4 公開0.0.6版本：
+- 支援Grok聊天室
+- 修正Chrome版本截圖用戶訊息不分行的問題
 2025/11/18 公開0.0.5的Chrome版本  
 2025/9/24 公開0.0.5的Firefox版本：
 - 修正Gemini截圖的用戶訊息不分行問題
@@ -19,7 +22,7 @@
 聲明：我沒學過程式，幾乎都是靠GPT寫程式碼給我，我再邊看邊學和測試除蟲。所以這**絕對不會是**完全沒有Bug的擴充，或許會有我沒發現的Bug。
 
 ## 功能介紹
-1. 將GPT、Gemini、Mistral與Claude的聊天室訊息匯出成PNG、TXT、MD、SillyTavern jsonl格式。
+1. 將GPT、Gemini、Mistral、Claude與Grok的聊天室訊息匯出成PNG、TXT、MD、SillyTavern jsonl格式。
 2. 可選擇要匯出哪些訊息。
 3. 可自訂匯出的使用者名稱與角色名稱。
 4. 匯出為PNG格式時，可自訂使用者與角色的頭像、圖片寬度、背景顏色、字體等內容，並提供兩種排版風格。
@@ -28,10 +31,10 @@
 1. Gemini聊天室的內容過長時，系統在第一次載入聊天室時會省略前面的內容，因此需要將聊天室拉到最前面，等所有對話內容都顯示出來了再下載檔案。
   - 快捷的方式：在聊天室按下鍵盤的Home鍵，便能直接跳到聊天室最前方。
 2. 無法截取Gemini與Claude聊天室的畫布等需要另外開啟的內容。
-3. 尚未測試Gemini、Mistral與Claude聊天室內的圖片是否能截取下來。~~（我忘了）~~
+3. 目前Gemini與Mistral無法匯出聊天室內生成的圖片。
 4. 不提供匯出為PDF格式。如需要PDF格式，可以使用現有的Chrome擴充功能，或是匯出為MD後透過Obsidian等程式轉檔為PDF。
-5. GPT聊天室訊息包含越多張圖片，檔案大小會越大，過大的檔案可能會匯出失敗。
-6. GPT聊天室訊息包含圖片時，建議匯出為MD再使用Obsidian等程式開啟，才會直接看見圖片。若以純文字格式匯出，圖片內容將是一長串Base64編碼。
+5. GPT與Grok聊天室訊息包含越多張圖片，檔案大小會越大，過大的檔案可能會匯出失敗。
+6. GPT與Grok聊天室訊息包含圖片時，建議匯出為MD再使用Obsidian等程式開啟，才會直接看見圖片。若以純文字格式匯出，圖片內容將是一長串Base64編碼。
 
 ## 安裝方式（Firefox）
 1. 下載XPI檔案。
@@ -48,12 +51,13 @@
 5. 完成★
 
 ## 使用方式
-1. 進入ChatGPT、Gemini或Mistral的聊天室網頁。
+1. 進入各AI官網的聊天室網頁。
 2. Select按鍵：點選後會出現勾選框，可勾選要匯出的訊息。
-3. Select旁的▼：快速「全選」、「只選user」、「只選GPT/Gemini/Mistral」。
+3. Select旁的▼：快速「全選」、「只選user」、「只選AI」。
 4. Export旁的▼：選擇匯出的格式。
 5. Export按鍵：點選後會以選擇的格式匯出選擇的訊息。
 6. 齒輪：點選後會開啟設定視窗。（設定為所有支援平台共用）
 
 ## 額外資訊
-歡迎加入DC伺服器[AI深夜奶茶店](https://discord.gg/WYAMQ5n4GE)，一起討論AI RP。
+- 歡迎加入DC伺服器[AI深夜奶茶店](https://discord.gg/WYAMQ5n4GE)，一起討論AI RP。
+- 我的個人網站：[Coco's Home](https://my-intro-website-production.up.railway.app/)
