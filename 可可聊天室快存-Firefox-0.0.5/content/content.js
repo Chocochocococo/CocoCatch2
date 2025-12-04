@@ -2887,6 +2887,8 @@
             const role = userMessages.includes(messageEl) ? "user" : "assistant";
             const cloned = messageEl.cloneNode(true);
             cloned.querySelectorAll("button, .copy, .lucide, svg").forEach(el => el.remove());
+            // Remove model selector chip (model picker like "Haiku 4.5")
+            cloned.querySelectorAll("div.whitespace-nowrap.select-none").forEach(el => el.remove());
 
             const newMessageData = {
               id: generateId(),

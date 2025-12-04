@@ -1,0 +1,30 @@
+        const currentMessageSet = new Set(allMessages);
+
+        // æ¸…ç?ä¸å??¨ç??ƒç?
+        conversationData = conversationData.filter(msg => currentMessageSet.has(msg.element));
+        const existingElementsInConvData = new Set(conversationData.map(msg => msg.element));
+
+        // ?°è???        for (const messageEl of allMessages) {
+          if (!existingElementsInConvData.has(messageEl)) {
+            const role = userMessages.includes(messageEl) ? "user" : "assistant";
+            const cloned = messageEl.cloneNode(true);
+            cloned.querySelectorAll("button, .copy, .lucide, svg").forEach(el => el.remove());
+
+            const newMessageData = {
+              id: generateId(),
+              role,
+              text: cloned.innerText.trim(),
+              markdown: getMarkdownFromMessage(cloned, role === "user"),
+              element: messageEl,
+              selected: true
+            };
+            messageEl.setAttribute('data-mistral-message', newMessageData.id);
+            conversationData.push(newMessageData);
+          }
+        }
+
+        // DOM ?†å?
+        conversationData.sort((a, b) => {
+          const position = a.element.compareDocumentPosition(b.element);
+          if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+          if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
