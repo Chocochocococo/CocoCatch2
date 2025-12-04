@@ -16,6 +16,7 @@
     if (hostname.includes('gemini.google.com')) return 'gemini';
     if (hostname.includes('chat.mistral.ai')) return 'mistral';
     if (hostname.includes('claude.ai')) return 'claude';
+    if (hostname.includes('grok.com')) return 'grok';
     
     return null;
   }
@@ -3743,8 +3744,837 @@
     console.log('✅ Claude 匯出工具初始化完成');
   }
 
+  // Grok 匯出
+  async function initGrok() {
+    console.log('🛰️ 初始化 Grok 匯出工具');
+    
+    const storedData = await browser.storage.local.get({
+        storedFormat: "text",
+        storedUserName: "你",
+        storedCharacterName: "Grok",
+        storedImageWidth: 800,
+        storedFontSize: 16,
+        storedFontColor: "#ffffff",
+        storedBackgroundColor: "#000000",
+        storedFontFamily: "新細明體",
+        storedUserAvatar: "",
+        storedAssistantAvatar: "",
+        storedScreenshotStyle: "left",
+        storedUserMsgBgColor: "#313131",
+        storedAssistantMsgBgColor: "#202020"
+      });
+      let storedFormat = storedData.storedFormat;
+      let storedUserName = storedData.storedUserName;
+      let storedCharacterName = storedData.storedCharacterName;
+      let storedImageWidth = storedData.storedImageWidth;
+      let storedFontSize = storedData.storedFontSize;
+      let storedFontColor = storedData.storedFontColor;
+      let storedBackgroundColor = storedData.storedBackgroundColor;
+      let storedFontFamily = storedData.storedFontFamily;
+      let storedUserAvatar = storedData.storedUserAvatar;
+      let storedAssistantAvatar = storedData.storedAssistantAvatar;
+      let storedScreenshotStyle = storedData.storedScreenshotStyle;
+      let storedUserMsgBgColor = storedData.storedUserMsgBgColor;
+      let storedAssistantMsgBgColor = storedData.storedAssistantMsgBgColor;
 
-  // 主執行邏輯
+      let selectionModeEnabled = false;
+      let conversationData = [];
+      let currentUrl = window.location.pathname;
+
+      function generateId() {
+        return '_' + Math.random().toString(36).substr(2, 9);
+      }
+
+      function detectRole(groupEl) {
+        if (groupEl.classList.contains("items-end")) return "user";
+        if (groupEl.classList.contains("items-start")) return "assistant";
+        const hasRegen = groupEl.querySelector(".action-buttons [aria-label='Regenerate']");
+        if (hasRegen) return "assistant";
+        return "assistant";
+      }
+
+      function checkIfChatChanged() {
+        if (window.location.pathname !== currentUrl) {
+          console.log("URL change detected. Resetting conversation data.");
+          currentUrl = window.location.pathname;
+          conversationData = [];
+          
+          document.querySelectorAll(".chat-export-checkbox").forEach(cb => cb.remove());
+          
+          const allMessages = document.querySelectorAll("[data-grok-message]");
+          allMessages.forEach(msg => msg.removeAttribute("data-grok-message"));
+        }
+      }
+
+      async function scanConversation() {
+        checkIfChatChanged();
+
+        const messageGroups = Array.from(document.querySelectorAll("div[id^='response-']"));
+        const currentMessageSet = new Set(messageGroups);
+
+        conversationData = conversationData.filter(msg => currentMessageSet.has(msg.element));
+        const existingElementsInConvData = new Set(conversationData.map(msg => msg.element));
+
+        for (const messageEl of messageGroups) {
+          if (!existingElementsInConvData.has(messageEl)) {
+            const role = detectRole(messageEl);
+            const bubble = messageEl.querySelector(".message-bubble") || messageEl;
+            const cloned = bubble.cloneNode(true);
+
+            cloned.querySelectorAll(".action-buttons, .inline-media-container, .auth-notification").forEach(el => el.remove());
+            cloned.querySelectorAll("div.flex.flex-col.gap-1.mt-2.items-start.w-full").forEach(el => el.remove());
+            cloned.querySelectorAll("button[aria-label='儲存'], button[aria-label='製作影片']").forEach(el => el.remove());
+
+            const contentNode = cloned.querySelector(".response-content-markdown") || cloned;
+            const finalText = contentNode.innerText.trim();
+
+            const newMessageData = {
+              id: generateId(),
+              role,
+              text: finalText,
+              markdown: getMarkdownFromMessage(contentNode, role === "user"),
+              element: messageEl,
+              selected: true
+            };
+            messageEl.setAttribute('data-grok-message', newMessageData.id);
+            conversationData.push(newMessageData);
+          }
+        }
+
+        conversationData.sort((a, b) => {
+          const position = a.element.compareDocumentPosition(b.element);
+          if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+          if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+          return 0;
+        });
+
+        if (selectionModeEnabled) {
+          conversationData.forEach(msg => {
+            if (!msg.element.querySelector(".chat-export-checkbox")) {
+              addCheckboxToMessage(msg.element, msg.id);
+            }
+          });
+        }
+      }
+
+      function escapeHTML(str) {
+        return str.replace(/[&<>"']/g, (m) =>
+          ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m])
+        );
+      }
+
+      function getMarkdownFromMessage(el, isUser) {
+        if (isUser) {
+          const htmlContent = el.innerHTML
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/(p|div)>\s*<((p|div)[^>]*)>/gi, '\n');
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = htmlContent;
+          const rawText = tempDiv.textContent || tempDiv.innerText || "";
+          return rawText
+            .split('\n').map(line => line.trimEnd()).join('\n')
+            .replace(/\n{3,}/g, '\n\n').trim();
+        }
+
+        const contentNode = el.querySelector('.response-content-markdown') || el;
+        const md = turndownService.turndown(contentNode.innerHTML);
+        return md.replace(/\n{3,}/g, "\n\n").trim();
+      }
+
+      const turndownService = new TurndownService();
+      if (typeof turndownPluginGfm !== "undefined" && turndownPluginGfm.gfm) {
+        turndownService.use(turndownPluginGfm.gfm);
+      }
+      turndownService.addRule('strikethrough', {
+        filter: ['del', 's', 'strike'],
+        replacement: function (content) {
+          return '~~' + content + '~~';
+        }
+      });
+      turndownService.addRule('multilineCode', {
+        filter: function (node) {
+          return (
+            node.nodeName === 'CODE' &&
+            (node.className?.includes?.('language-') || (node.textContent || '').includes('\n'))
+          );
+        },
+        replacement: function (content, node) {
+          const cls = Array.from(node.classList || []);
+          const langClass = cls.find(c => c.startsWith('language-'));
+          const lang = langClass ? langClass.replace('language-', '') : '';
+          return `\n\n\`\`\`${lang}\n${node.textContent}\n\`\`\`\n\n`;
+        }
+      });
+
+      /********************
+       * 第一排：Select row
+       ********************/
+      const selectRow = document.createElement("div");
+      selectRow.style.display = "flex";
+      selectRow.style.alignItems = "center";
+      selectRow.style.gap = "4px";
+
+      // 「Select」按鈕
+      const fixedButtonStyle = {
+        width: "80px",
+        backgroundColor: "#444",
+        color: "#fff",
+        border: "none",
+        borderRadius: "4px",
+        padding: "4px 8px",
+        cursor: "pointer"
+      };
+
+      const selectBtn = document.createElement("button");
+      selectBtn.textContent = "Select";
+      Object.assign(selectBtn.style, fixedButtonStyle);
+      selectBtn.addEventListener("click", async () => {
+        selectionModeEnabled = !selectionModeEnabled;
+      
+        if (selectionModeEnabled) {
+          await scanConversation();
+          conversationData.forEach(msg => {
+            addCheckboxToMessage(msg.element, msg.id);
+          });
+          globalSelectChk.style.display = "inline-block";
+          globalSelectChk.style.position = "absolute";
+          globalSelectChk.style.right = "8px";
+          globalSelectChk.style.top = "5px";
+      
+          if (storedFilter === "all") {
+            conversationData.forEach(m => (m.selected = true));
+            document.querySelectorAll(".chat-export-checkbox").forEach(cb => {
+              cb.checked = true;
+            });
+            globalSelectChk.checked = true;
+          } else if (storedFilter === "user") {
+            conversationData.forEach(m => (m.selected = (m.role === "user")));
+            document.querySelectorAll(".chat-export-checkbox").forEach(cb => {
+              const msgId = cb.getAttribute("data-msg-id");
+              const msg = conversationData.find(m => m.id === msgId);
+              cb.checked = msg && msg.role === "user";
+            });
+            globalSelectChk.checked = false;
+          } else if (storedFilter === "assistant") {
+            conversationData.forEach(m => (m.selected = (m.role === "assistant")));
+            document.querySelectorAll(".chat-export-checkbox").forEach(cb => {
+              const msgId = cb.getAttribute("data-msg-id");
+              const msg = conversationData.find(m => m.id === msgId);
+              cb.checked = msg && msg.role === "assistant";
+            });
+            globalSelectChk.checked = false;
+          }
+        } else {
+          document.querySelectorAll(".chat-export-checkbox").forEach(cb => cb.remove());
+          globalSelectChk.style.display = "none";
+        }
+      });
+      selectRow.appendChild(selectBtn);
+
+      const selectDropdownBtn = document.createElement("button");
+      selectDropdownBtn.textContent = "▾";
+      selectDropdownBtn.style.width = "25px";
+      selectDropdownBtn.style.backgroundColor = fixedButtonStyle.backgroundColor;
+      selectDropdownBtn.style.color = fixedButtonStyle.color;
+      selectDropdownBtn.style.border = fixedButtonStyle.border;
+      selectDropdownBtn.style.borderRadius = fixedButtonStyle.borderRadius;
+      selectDropdownBtn.style.padding = "4px 6px";
+      selectDropdownBtn.style.cursor = fixedButtonStyle.cursor;
+      selectRow.appendChild(selectDropdownBtn);
+
+      // 全選勾選框 (全局)
+      const globalSelectChk = document.createElement("input");
+      globalSelectChk.type = "checkbox";
+      globalSelectChk.checked = true;
+      globalSelectChk.style.display = "none";
+      globalSelectChk.addEventListener("change", () => {
+        document.querySelectorAll(".chat-export-checkbox").forEach(cb => {
+          cb.checked = globalSelectChk.checked;
+          const msgId = cb.getAttribute("data-msg-id");
+          const msg = conversationData.find(m => m.id === msgId);
+          if (msg) msg.selected = globalSelectChk.checked;
+        });
+      });
+      selectRow.appendChild(globalSelectChk);
+
+      // 下拉選單 (Select)
+      const selectDropdownMenu = document.createElement("div");
+      selectDropdownMenu.style.position = "absolute";
+      selectDropdownMenu.style.backgroundColor = "#555";
+      selectDropdownMenu.style.border = "1px solid #777";
+      selectDropdownMenu.style.borderRadius = "4px";
+      selectDropdownMenu.style.padding = "4px";
+      selectDropdownMenu.style.bottom = "35px";
+      selectDropdownMenu.style.left = "0";
+      selectDropdownMenu.style.display = "none";
+      
+      const selectOptions = [
+        { value: "all", label: "全選" },
+        { value: "user", label: "只選 user" },
+        { value: "assistant", label: "只選 Gemini" }
+      ];
+      
+      selectOptions.forEach(opt => {
+        const optBtn = document.createElement("div");
+        optBtn.textContent = opt.label;
+        optBtn.style.padding = "4px";
+        optBtn.style.cursor = "pointer";
+        if (opt.value === storedFilter) {
+          optBtn.style.backgroundColor = "#777";
+        }
+        optBtn.addEventListener("click", () => {
+          storedFilter = opt.value;
+          Array.from(selectDropdownMenu.children).forEach(child => {
+            child.style.backgroundColor = (child.textContent === opt.label ? "#777" : "");
+          });
+          selectDropdownBtn.textContent = "▾";
+          selectDropdownMenu.style.display = "none";
+          
+          conversationData.forEach(msg => {
+            let newState;
+            if (storedFilter === "all") {
+              newState = true;
+            } else if (storedFilter === "user") {
+              newState = (msg.role === "user");
+            } else if (storedFilter === "assistant") {
+              newState = (msg.role === "assistant");
+            }
+            msg.selected = newState;
+            const chk = msg.element.querySelector(`[data-msg-id="${msg.id}"]`);
+            if (chk) {
+              chk.checked = newState;
+            }
+          });
+          globalSelectChk.checked = (storedFilter === "all");
+        });
+        selectDropdownMenu.appendChild(optBtn);
+      });
+      
+      selectDropdownBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        selectDropdownMenu.style.display = selectDropdownMenu.style.display === "none" ? "block" : "none";
+      });
+      document.addEventListener("click", () => { selectDropdownMenu.style.display = "none"; });
+      selectRow.style.position = "relative";
+      selectRow.appendChild(selectDropdownMenu);
+
+      /********************
+       * 第二排：Export row
+       ********************/
+      const exportRow = document.createElement("div");
+      exportRow.style.display = "flex";
+      exportRow.style.alignItems = "center";
+      exportRow.style.gap = "4px";
+
+      const exportBtnText = document.createElement("button");
+      exportBtnText.textContent = "Export";
+      Object.assign(exportBtnText.style, fixedButtonStyle);
+      exportBtnText.addEventListener("click", doExport);
+      exportRow.appendChild(exportBtnText);
+
+      const exportDropdownBtn = document.createElement("button");
+      exportDropdownBtn.textContent = "▾";
+      exportDropdownBtn.style.width = "25px";
+      exportDropdownBtn.style.backgroundColor = fixedButtonStyle.backgroundColor;
+      exportDropdownBtn.style.color = fixedButtonStyle.color;
+      exportDropdownBtn.style.border = fixedButtonStyle.border;
+      exportDropdownBtn.style.borderRadius = fixedButtonStyle.borderRadius;
+      exportDropdownBtn.style.padding = "4px 6px";
+      exportDropdownBtn.style.cursor = fixedButtonStyle.cursor;
+      exportRow.appendChild(exportDropdownBtn);
+
+      const exportDropdownMenu = document.createElement("div");
+      exportDropdownMenu.style.position = "absolute";
+      exportDropdownMenu.style.backgroundColor = "#555";
+      exportDropdownMenu.style.border = "1px solid #777";
+      exportDropdownMenu.style.borderRadius = "4px";
+      exportDropdownMenu.style.padding = "4px";
+      exportDropdownMenu.style.bottom = "35px";
+      exportDropdownMenu.style.left = "0";
+      exportDropdownMenu.style.display = "none";
+
+      const formats = [
+        { val: "image", label: "IMAGE" },
+        { val: "text", label: "TEXT" },
+        { val: "markdown", label: "MARKDOWN" },
+        { val: "silly", label: "SILLY" }
+      ];
+      
+      formats.forEach(fmt => {
+        const fmtBtn = document.createElement("div");
+        fmtBtn.textContent = fmt.label;
+        fmtBtn.style.padding = "4px";
+        fmtBtn.style.cursor = "pointer";
+        if (fmt.val === storedFormat) {
+          fmtBtn.style.backgroundColor = "#777";
+        }
+        fmtBtn.addEventListener("click", async () => {
+          storedFormat = fmt.val;
+          await browser.storage.local.set({ storedFormat });
+          Array.from(exportDropdownMenu.children).forEach(child => {
+            child.style.backgroundColor = (child.textContent === fmt.label ? "#777" : "");
+          });
+          exportDropdownBtn.textContent = "▾";
+          exportDropdownMenu.style.display = "none";
+        });
+        exportDropdownMenu.appendChild(fmtBtn);
+      });
+      
+      exportDropdownBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        exportDropdownMenu.style.display = exportDropdownMenu.style.display === "none" ? "block" : "none";
+      });
+      document.addEventListener("click", () => { exportDropdownMenu.style.display = "none"; });
+      exportRow.style.position = "relative";
+      exportRow.appendChild(exportDropdownMenu);
+
+      // 設定按鈕
+      const settingsBtn = document.createElement("button");
+      settingsBtn.textContent = "⚙️";
+      settingsBtn.style.width = "35px";
+      settingsBtn.style.backgroundColor = fixedButtonStyle.backgroundColor;
+      settingsBtn.style.color = fixedButtonStyle.color;
+      settingsBtn.style.border = fixedButtonStyle.border;
+      settingsBtn.style.borderRadius = fixedButtonStyle.borderRadius;
+      settingsBtn.style.padding = fixedButtonStyle.padding;
+      settingsBtn.style.cursor = fixedButtonStyle.cursor;
+      settingsBtn.addEventListener("click", showSettingsPanel);
+      exportRow.appendChild(settingsBtn);
+
+      container.innerHTML = "";
+      container.appendChild(selectRow);
+      container.appendChild(exportRow);
+
+      // 設定面板 (保持原樣，只修改預設角色名稱)
+      function showSettingsPanel() {
+        const style = document.createElement("style");
+        style.textContent = `
+          .setting-input, .setting-select {
+            height: 36px;
+            padding: 4px 8px;
+            font-size: 14px;
+            line-height: 1.2;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            background-color: #fff;
+            color: #000;
+            width: 100%;
+            margin-bottom: 5px;
+          }
+          .setting-color {
+            height: 36px;
+            width: 100%;
+            padding: 0;
+            border: none;
+            background: none;
+          }
+          .setting-avatar-container img {
+          display: inline-block;
+          }
+        `;
+        document.head.appendChild(style);
+      
+        const settingsPanel = document.createElement("div");
+        settingsPanel.style.position = "fixed";
+        settingsPanel.style.top = "50%";
+        settingsPanel.style.left = "50%";
+        settingsPanel.style.transform = "translate(-50%, -50%)";
+        settingsPanel.style.backgroundColor = "#222";
+        settingsPanel.style.padding = "20px";
+        settingsPanel.style.borderRadius = "6px";
+        settingsPanel.style.boxShadow = "0 2px 10px rgba(0,0,0,0.7)";
+        settingsPanel.style.zIndex = "10000";
+        settingsPanel.style.width = "600px";
+        settingsPanel.style.maxHeight = "80vh";
+        settingsPanel.style.overflowY = "auto";
+      
+        const title = document.createElement("div");
+        title.textContent = "設定";
+        title.style.marginBottom = "10px";
+        title.style.fontSize = "16px";
+        title.style.fontWeight = "bold";
+        title.style.color = "#fff";
+        settingsPanel.appendChild(title);
+      
+        const settingsContainer = document.createElement("div");
+        settingsContainer.style.display = "flex";
+        settingsContainer.style.flexWrap = "wrap";
+        settingsContainer.style.gap = "10px";
+      
+        const groups = [
+            { label: "基本設定", fields: [
+              { label: "使用者名稱", value: storedUserName, key: "storedUserName" },
+              { label: "角色名稱", value: storedCharacterName, key: "storedCharacterName" }
+            ]},
+            { label: "頭像設定", fields: [
+              { label: "使用者頭像", value: storedUserAvatar || defaultAvatar, key: "storedUserAvatar" },
+              { label: "角色頭像", value: storedAssistantAvatar || defaultAvatar, key: "storedAssistantAvatar" }
+            ]},
+            { label: "外觀設定", fields: [
+              { label: "圖片寬度 (px)", value: storedImageWidth, key: "storedImageWidth" },
+              { label: "字體大小 (px)", value: storedFontSize, key: "storedFontSize" },
+              { label: "字體顏色", value: storedFontColor, key: "storedFontColor" },
+              { label: "使用者訊息背景顏色", value: storedUserMsgBgColor || "#313131", key: "storedUserMsgBgColor" },
+            ]},
+            { label: "外觀設定", fields: [
+              { label: "背景顏色", value: storedBackgroundColor, key: "storedBackgroundColor" },
+              { label: "字體", value: storedFontFamily, key: "storedFontFamily" },
+              { label: "截圖風格", value: storedScreenshotStyle, key: "storedScreenshotStyle", type: "select", options: [
+                { value: "left", label: "全部左側" },
+                { value: "bubble", label: "聊天泡泡" }
+              ]},
+              { label: "Gemini訊息背景顏色", value: storedAssistantMsgBgColor || "#202020", key: "storedAssistantMsgBgColor" }
+            ]}
+          ];
+      
+        groups.forEach(group => {
+            const groupContainer = document.createElement("div");
+            groupContainer.style.flex = "1";
+            groupContainer.style.minWidth = "200px";
+            groupContainer.style.boxSizing = "border-box";
+      
+            const groupTitle = document.createElement("div");
+            groupTitle.textContent = group.label;
+            groupTitle.style.color = "#fff";
+            groupTitle.style.marginTop = "10px";
+            groupTitle.style.fontWeight = "bold";
+            groupContainer.appendChild(groupTitle);
+      
+            group.fields.forEach(field => {
+              const fieldLabel = document.createElement("div");
+              fieldLabel.textContent = field.label;
+              fieldLabel.style.color = "#fff";
+              fieldLabel.style.marginTop = "5px";
+              fieldLabel.style.fontSize = "14px";
+              groupContainer.appendChild(fieldLabel);
+              
+              if (field.key === "storedUserAvatar" || field.key === "storedAssistantAvatar") {
+                const avatarContainer = document.createElement("div");
+                avatarContainer.className = "setting-avatar-container";
+                avatarContainer.style.display = "flex";
+                avatarContainer.style.alignItems = "center";
+                avatarContainer.style.gap = "10px";
+                avatarContainer.style.marginBottom = "5px";
+
+                const previewImg = document.createElement("img");
+                previewImg.style.width = "36px";
+                previewImg.style.height = "36px";
+                previewImg.style.objectFit = "cover";
+                previewImg.style.border = "1px solid #ccc";
+                previewImg.style.borderRadius = "4px";
+                previewImg.src = field.value || "";
+
+                const browseBtn = document.createElement("button");
+                browseBtn.textContent = "瀏覽檔案";
+                browseBtn.className = "setting-input"; 
+                browseBtn.style.height = "36px";
+                browseBtn.style.lineHeight = "28px";
+                browseBtn.style.width = "calc(50% - 50px)";
+                browseBtn.style.display = "inline-block";
+
+                const fileInput = document.createElement("input");
+                fileInput.type = "file";
+                fileInput.accept = "image/*";
+                fileInput.style.display = "none";
+                browseBtn.addEventListener("click", () => fileInput.click());
+
+                fileInput.addEventListener("change", (e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = async function(evt) {
+                      const dataURL = evt.target.result;
+                      previewImg.src = dataURL;
+                      const key = field.key === "storedUserAvatar" ? "storedUserAvatar" : "storedAssistantAvatar";
+                      if (key === "storedUserAvatar") storedUserAvatar = dataURL;
+                      else storedAssistantAvatar = dataURL;
+                      await browser.storage.local.set({ [key]: dataURL });
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                });
+
+                avatarContainer.appendChild(browseBtn);
+                avatarContainer.appendChild(previewImg);
+                groupContainer.appendChild(fileInput);
+                groupContainer.appendChild(avatarContainer);
+
+              } else {
+              let input;
+              if (field.type === "select") {
+                input = document.createElement("select");
+                field.options.forEach(opt => {
+                  const option = document.createElement("option");
+                  option.value = opt.value;
+                  option.textContent = opt.label;
+                  if (opt.value === field.value) option.selected = true;
+                  input.appendChild(option);
+                });
+                input.className = "setting-select";
+              } else {
+                input = document.createElement("input");
+                input.type = ["storedFontColor", "storedBackgroundColor", "storedUserMsgBgColor", "storedAssistantMsgBgColor"].includes(field.key) ? "color" : "text";
+                input.value = field.value;
+                input.className = input.type === "color" ? "setting-color" : "setting-input";
+              }
+      
+              input.addEventListener("change", async () => {
+                const newValue = input.value.trim();
+                switch (field.key) {
+                  case "storedUserName": storedUserName = newValue || "你"; break;
+                  case "storedCharacterName": storedCharacterName = newValue || "Gemini"; break;
+                  case "storedImageWidth": storedImageWidth = Number(newValue) || 800; break;
+                  case "storedFontSize": storedFontSize = Number(newValue) || 16; break;
+                  case "storedFontColor": storedFontColor = newValue || "#ffffff"; break;
+                  case "storedBackgroundColor": storedBackgroundColor = newValue || "#000000"; break;
+                  case "storedFontFamily": storedFontFamily = newValue || "新細明體"; break;
+                  case "storedScreenshotStyle": storedScreenshotStyle = newValue; break;
+                  case "storedUserMsgBgColor": storedUserMsgBgColor = newValue || "#313131"; break;
+                  case "storedAssistantMsgBgColor": storedAssistantMsgBgColor = newValue || "#202020"; break;
+                }
+                await browser.storage.local.set({ [field.key]: newValue });
+              });
+      
+              groupContainer.appendChild(input);
+            }
+          });
+      
+          settingsContainer.appendChild(groupContainer);
+        });
+      
+        settingsPanel.appendChild(settingsContainer);
+      
+        const btnContainer = document.createElement("div");
+        btnContainer.style.marginTop = "10px";
+        btnContainer.style.textAlign = "center";
+      
+        const saveBtn = document.createElement("button");
+        saveBtn.textContent = "儲存";
+        saveBtn.style.backgroundColor = "#4CAF50";
+        saveBtn.style.color = "#fff";
+        saveBtn.style.border = "none";
+        saveBtn.style.borderRadius = "4px";
+        saveBtn.style.padding = "6px 12px";
+        saveBtn.style.cursor = "pointer";
+        saveBtn.addEventListener("click", () => {
+          document.body.removeChild(settingsPanel);
+        });
+      
+        const cancelBtn = document.createElement("button");
+        cancelBtn.textContent = "取消";
+        cancelBtn.style.backgroundColor = "#666";
+        cancelBtn.style.color = "#fff";
+        cancelBtn.style.border = "none";
+        cancelBtn.style.borderRadius = "4px";
+        cancelBtn.style.padding = "6px 12px";
+        cancelBtn.style.cursor = "pointer";
+        cancelBtn.style.marginLeft = "10px";
+        cancelBtn.addEventListener("click", () => {
+          document.body.removeChild(settingsPanel);
+        });
+      
+        btnContainer.appendChild(saveBtn);
+        btnContainer.appendChild(cancelBtn);
+        settingsPanel.appendChild(btnContainer);
+        document.body.appendChild(settingsPanel);
+      }  
+
+      async function fetchAsBase64(url) {
+        try {
+          const response = await fetch(url);
+          const blob = await response.blob();
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => reject("讀取圖片失敗");
+            reader.readAsDataURL(blob);
+          });
+        } catch (err) {
+          console.error("Fetch 失敗:", err);
+          throw err;
+        }
+      }
+  
+      async function replaceImagesWithBase64(container) {
+        const images = container.querySelectorAll("img");
+        await Promise.all([...images].map(async (img) => {
+          if (img.src.startsWith("data:")) return;
+          try {
+            img.crossOrigin = "anonymous";
+            const dataURL = await fetchAsBase64(img.src);
+            img.src = dataURL;
+            console.log("圖片已轉 Base64：", dataURL.slice(0, 40) + "...");
+          } catch (err) {
+            console.error("轉換圖片失敗:", err);
+          }
+        }));
+      }
+  
+      function removeDuplicateImages(container) {
+        const images = container.querySelectorAll("img");
+        const srcSet = new Set();
+        images.forEach((img) => {
+          if (srcSet.has(img.src)) {
+            img.remove();
+          } else {
+            srcSet.add(img.src);
+          }
+        });
+      }
+
+      async function triggerImageConversion(options = {}) {
+        const { splitMode = false, maxHeight = 4096, containerElem: passedContainer } = options;
+        let containerElem = passedContainer;
+        if (!containerElem) {
+          const firstSelected = conversationData.find(m => m.selected);
+          if (firstSelected) containerElem = firstSelected.element;
+        }
+        if (!containerElem) {
+          console.error("找不到對話容器 (triggerImageConversion)");
+          return;
+        }
+
+        await replaceImagesWithBase64(containerElem);
+        removeDuplicateImages(containerElem);
+
+        conversationData.forEach(msg => {
+          const original = msg.element;
+          const cloned = original.cloneNode(true);
+
+          cloned.querySelectorAll(".action-buttons, .inline-media-container, .auth-notification").forEach(el => el.remove());
+          cloned.querySelectorAll("div.flex.flex-col.gap-1.mt-2.items-start.w-full").forEach(el => el.remove());
+          cloned.querySelectorAll("button[aria-label='儲存'], button[aria-label='製作影片']").forEach(el => el.remove());
+
+          const contentDiv = cloned.querySelector(".response-content-markdown") || cloned;
+
+          const originalImgs = original.querySelectorAll("img");
+          const clonedImgs = cloned.querySelectorAll("img");
+          clonedImgs.forEach((img, i) => {
+            if (originalImgs[i]) img.src = originalImgs[i].src;
+          });
+
+          msg.html = contentDiv ? contentDiv.innerHTML : "<p>（內容消失惹 QQ）</p>";
+          msg.markdown = getMarkdownFromMessage(contentDiv || cloned, msg.role === "user");
+        });
+
+        window.__cocoCatchSplitMode = splitMode;
+        window.__cocoCatchMaxHeight = maxHeight;
+      }
+
+      async function doExport() {
+        await scanConversation();
+        let selectedMessages = conversationData.filter(m => m.selected);
+        if (selectedMessages.length === 0) {
+          alert("沒有符合篩選條件的訊息！");
+          return;
+        }
+        
+        const isImageExport = (storedFormat === "image");
+        const MAX_HEIGHT = 4096;
+        let splitMode = false;
+      
+        if (isImageExport) {
+          const totalHeight = selectedMessages.reduce((h, m) => h + (m.element?.offsetHeight || 0), 0);
+          if (totalHeight > MAX_HEIGHT) {
+            const ok = window.confirm(`選取的訊息高度 ${totalHeight}px 已超過 ${MAX_HEIGHT}px，將自動分張並壓縮下載，確定嗎？`);
+            if (!ok) return;
+            splitMode = true;
+          }
+        }
+        
+        await triggerImageConversion({ splitMode, maxHeight: MAX_HEIGHT });
+        
+        const sanitizedData = selectedMessages.map(m => {
+          return {
+            id: m.id,
+            role: m.role,
+            text: `${m.role === "user" ? storedUserName : storedCharacterName}:${m.markdown}`,
+            markdown: m.markdown,
+            selected: m.selected,
+          };
+        });
+      
+        const payload = {
+          conversationData: sanitizedData,
+          settings: {
+            splitMode,
+            maxHeight: MAX_HEIGHT,
+            storedFormat,
+            storedUserName,
+            storedCharacterName,
+            storedImageWidth,
+            storedFontSize,
+            storedFontColor,
+            storedBackgroundColor,
+            storedFontFamily,
+            storedUserAvatar,
+            storedAssistantAvatar,
+            storedScreenshotStyle,
+            storedUserMsgBgColor,
+            storedAssistantMsgBgColor,
+            fileNameBase: document.title
+          }
+        };
+      
+        browser.runtime.sendMessage({
+          type: "DO_EXPORT",
+          payload: payload
+        }).then(response => {
+          console.log("Content script: 收到 background 回應 =>", response);
+        });
+      }
+
+      function addCheckboxToMessage(article, msgId) {
+        if (article.querySelector(`[data-msg-id="${msgId}"]`)) return;
+        const chk = document.createElement("input");
+        chk.type = "checkbox";
+        chk.className = "chat-export-checkbox";
+        chk.setAttribute("data-msg-id", msgId);
+        const msg = conversationData.find(m => m.id === msgId);
+        chk.checked = !!(msg && msg.selected);
+        chk.style.position = "absolute";
+        chk.style.right = "-100px";
+        chk.style.top = "10px";
+        chk.style.zIndex = "1000";
+        chk.addEventListener("change", () => {
+          const changingMsg = conversationData.find(m => m.id === msgId);
+          if (changingMsg) changingMsg.selected = chk.checked;
+        });
+        article.style.position = "relative";
+        article.appendChild(chk);
+      }
+
+      const mainObserver = new MutationObserver(async (mutations) => {
+        const hasRelevantChanges = mutations.some(m => m.type === 'childList' && m.addedNodes.length > 0);
+        if (hasRelevantChanges) {
+          await scanConversation();
+        }
+      });
+
+      let startupInterval = setInterval(() => {
+        const mainElem = document.querySelector("main, body");
+        const grokContainer = document.querySelector("div[id^='response-']");
+
+        if (mainElem && grokContainer) {
+          console.log("✅ Grok UI is ready. Initializing exporter.");
+          
+          currentUrl = window.location.pathname;
+          scanConversation();
+          
+          mainObserver.observe(mainElem, {
+            childList: true,
+            subtree: true,
+          });
+          
+          clearInterval(startupInterval);
+        }
+      }, 500);
+    
+    console.log('✅Grok 匯出工具初始化完成');
+  }
+
+
   async function main() {
     try {
       const platform = await waitForPlatform();
@@ -3769,6 +4599,9 @@
           break;
         case 'claude':
           await initClaude();
+          break;
+        case 'grok':
+          await initGrok();
           break;
         default:
           console.error('❌ 未知平台:', platform);
