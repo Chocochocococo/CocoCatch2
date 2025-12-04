@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "可可聊天室快存 ~CocoCatch~",
-  "version": "0.0.5",
-  "description": "快速匯出GPT、Gemini、Claude與Mistral的對話內容，支援PNG、TXT、Markdown、SillyTavern JSONL等格式。",
+  "version": "0.0.6",
+  "description": "快速匯出GPT、Gemini、Claude、Mistral與Grok的對話內容，支援PNG、TXT、Markdown、SillyTavern JSONL等格式。",
   "homepage_url": "https://github.com/Chocochocococo/CocoCatch2",
   "permissions": ["storage", "activeTab", "downloads"],
   "host_permissions": ["<all_urls>"],
@@ -15,7 +15,7 @@
   }],
   "content_scripts": [
     {
-      "matches": ["https://chatgpt.com/*","https://gemini.google.com/*","https://chat.mistral.ai/*","https://claude.ai/*"], 
+      "matches": ["https://chatgpt.com/*","https://gemini.google.com/*","https://chat.mistral.ai/*","https://claude.ai/*","https://grok.com/*"], 
       "js": [
         "UMD/marked.umd.js",
         "UMD/jszip.min.js",
