@@ -1900,6 +1900,15 @@
         }
       });
     }
+
+    // Get Gemini chat title; fallback to document title
+    function getGeminiConversationTitle() {
+      const titleElem = document.querySelector(".conversation-title.gds-title-m");
+      const titleText = titleElem?.textContent?.trim();
+      if (titleText) return titleText;
+      const docTitle = document.title?.trim();
+      return docTitle || "Gemini Chat";
+    }
     
     async function triggerImageConversion(options = {}) {
       const { splitMode = false, maxHeight = 4096, containerElem: passedContainer } = options;
@@ -2007,7 +2016,7 @@
           storedScreenshotStyle,
           storedUserMsgBgColor,
           storedAssistantMsgBgColor,
-          fileNameBase: document.title
+          fileNameBase: getGeminiConversationTitle()
         }
       };
     
@@ -3080,6 +3089,8 @@
             const role = userMessages.includes(messageEl) ? "user" : "assistant";
             const cloned = messageEl.cloneNode(true);
             cloned.querySelectorAll("button, .copy, .lucide, svg").forEach(el => el.remove());
+            // Remove model selector chip (e.g., "Haiku 4.5") so it is not exported as a message
+            cloned.querySelectorAll("div.whitespace-nowrap.select-none").forEach(el => el.remove());
 
             const newMessageData = {
               id: generateId(),
