@@ -3075,7 +3075,18 @@
         // 用戶訊息
         const userMessages = Array.from(document.querySelectorAll('[data-testid="user-message"]'));
         // AI 訊息容器
-        const aiMessages = Array.from(document.querySelectorAll('.font-claude-response'));
+        let aiMessages = Array.from(document.querySelectorAll('.font-claude-response'));
+
+        // 過濾掉包含模型選擇器的AI訊息（檢查是否包含 div.whitespace-nowrap.select-none）
+        aiMessages = aiMessages.filter(msg => {
+          // 直接檢查訊息的父容器中是否包含模型選擇器標記
+          const parent = msg.closest('.group') || msg.closest('[data-is-streaming]') || msg.parentElement;
+          if (!parent) return true;
+
+          // 檢查是否有 whitespace-nowrap select-none 的 div（模型選擇器的特徵）
+          const hasModelSelector = parent.querySelector('div.whitespace-nowrap.select-none');
+          return !hasModelSelector;
+        });
 
         const allMessages = [...userMessages, ...aiMessages];
         const currentMessageSet = new Set(allMessages);
@@ -3250,18 +3261,16 @@
         Object.assign(selectBtn.style, fixedButtonStyle);
         selectBtn.addEventListener("click", async () => {
           selectionModeEnabled = !selectionModeEnabled;
-        
+
           if (selectionModeEnabled) {
             await scanConversation();
             conversationData.forEach(msg => {
               addCheckboxToMessage(msg.element, msg.id);
             });
-            const rectParent = document.querySelector('main') || document.body;
+            // 將全選勾選框添加到exportRow，使其位於齒輪按鈕正上方
             globalSelectChk.style.display = "inline-block";
-            globalSelectChk.style.position = "absolute";
-            globalSelectChk.style.right = "8px";
-            globalSelectChk.style.top = "5px";
-            rectParent.appendChild(globalSelectChk);
+            exportRow.style.position = "relative";
+            exportRow.appendChild(globalSelectChk);
         
             if (storedFilter === "all") {
               conversationData.forEach(m => (m.selected = true));
@@ -3303,12 +3312,16 @@
       selectDropdownBtn.style.padding = "4px 6px";
       selectDropdownBtn.style.cursor = fixedButtonStyle.cursor;
       selectRow.appendChild(selectDropdownBtn);
-      
-      // 全選勾選框
+
+      // 全選勾選框（稍後會被添加到container，位於齒輪按鈕正上方）
       const globalSelectChk = document.createElement("input");
       globalSelectChk.type = "checkbox";
       globalSelectChk.checked = true;
       globalSelectChk.style.display = "none";
+      globalSelectChk.style.position = "absolute";
+      globalSelectChk.style.right = "2px";
+      globalSelectChk.style.top = "-24px";
+      globalSelectChk.style.zIndex = "10000";
       globalSelectChk.addEventListener("change", () => {
         document.querySelectorAll(".chat-export-checkbox").forEach(cb => {
           cb.checked = globalSelectChk.checked;
@@ -3317,8 +3330,7 @@
           if (msg) msg.selected = globalSelectChk.checked;
         });
       });
-      selectRow.appendChild(globalSelectChk);
-      
+
       // 下拉選單
       const selectDropdownMenu = document.createElement("div");
       selectDropdownMenu.style.position = "absolute";
@@ -3329,7 +3341,7 @@
       selectDropdownMenu.style.bottom = "35px";
       selectDropdownMenu.style.left = "0";
       selectDropdownMenu.style.display = "none";
-      
+
       const selectOptions = [
         { value: "all", label: "全選" },
         { value: "user", label: "只選 user" },
@@ -3828,6 +3840,17 @@
       async function doExport() {
         await scanConversation();
         let selectedMessages = conversationData.filter(m => m.selected);
+
+        // 二次過濾：確保不匯出包含模型選擇器的訊息（雙重保險）
+        selectedMessages = selectedMessages.filter(m => {
+          if (!m.element) return true;
+          const parent = m.element.closest('.group') || m.element.closest('[data-is-streaming]') || m.element.parentElement;
+          if (!parent) return true;
+          // 檢查是否有 whitespace-nowrap select-none 的 div（模型選擇器的特徵）
+          const hasModelSelector = parent.querySelector('div.whitespace-nowrap.select-none');
+          return !hasModelSelector;
+        });
+
         if (selectedMessages.length === 0) {
           alert("沒有符合篩選條件的訊息！");
           return;
@@ -3890,26 +3913,52 @@
           console.error("匯出失敗:", error);
         }
       }
-      
+
       // 幫訊息加入勾選框
       function addCheckboxToMessage(article, msgId) {
-        if (article.querySelector(`[data-msg-id="${msgId}"]`)) return;
+        // 確保不重複增加
+        const host = article.closest('.group') || article;
+        if (host.querySelector(`[data-msg-id="${msgId}"]`)) return;
+
         const chk = document.createElement("input");
         chk.type = "checkbox";
         chk.className = "chat-export-checkbox";
         chk.setAttribute("data-msg-id", msgId);
         const msg = conversationData.find(m => m.id === msgId);
         chk.checked = !!(msg && msg.selected);
-        chk.style.position = "absolute";
-        chk.style.left = "-100px";
-        chk.style.top = "10px";
+        chk.style.cursor = "pointer";
         chk.style.zIndex = "1000";
         chk.addEventListener("change", () => {
           const changingMsg = conversationData.find(m => m.id === msgId);
           if (changingMsg) changingMsg.selected = chk.checked;
         });
-        article.style.position = "relative";
-        article.appendChild(chk);
+
+        // 判斷是否為用戶訊息（用戶訊息有 data-testid="user-message"）
+        const isUserMessage = article.querySelector('[data-testid="user-message"]');
+
+        if (isUserMessage) {
+          // 用戶訊息：使用flex布局，插入到.flex.flex-row的第一個子元素之前
+          const target = host.querySelector('.flex.flex-row');
+          if (target) {
+            chk.style.marginRight = "6px";
+            chk.style.alignSelf = "flex-start";
+            target.insertBefore(chk, target.firstChild);
+          } else {
+            // 備用：絕對定位
+            chk.style.position = "absolute";
+            chk.style.left = "-28px";
+            chk.style.top = "8px";
+            host.style.position = host.style.position || "relative";
+            host.appendChild(chk);
+          }
+        } else {
+          // AI訊息：使用絕對定位，放在整個訊息區塊的外側
+          chk.style.position = "absolute";
+          chk.style.left = "-28px";
+          chk.style.top = "8px";
+          host.style.position = host.style.position || "relative";
+          host.appendChild(chk);
+        }
       }
 
       // 啟動和監聽邏輯（只更動準備條件的 HTML 選擇器）
