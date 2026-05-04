@@ -5,8 +5,207 @@
 
 (async function () {
   console.log('🚀 聊天室匯出工具啟動中...');
-
   const defaultAvatar = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAxXpUWHRSYXcgcHJvZmlsZSB0eXBlIGV4aWYAAHjabVDbDcMgDPxnio4AtgF7HNKkUjfo+D1iJ0qqnsT5hc6PtH3er/SYoCJJatdmrWVATIwGHM2OsXPJsvMOiRLiWz6dBUKKYdlDbfH/yJdTwM2AVy9C+ozCci9YdCD9EYpGPCciOGsIWQgxeaGEwPC1cjPt1xWWLd+h/tKkfqxhbn9j6bjeWtGHiTYunMHM6gPwfDXxgMNgZpwDnwx+ZdmZYhIc5N+dDqQv625ZL0IJTyYAAAGEaUNDUElDQyBwcm9maWxlAAB4nH2RPUjDQBzFX1OlohUHO4gIZqhOdlGRjqWKRbBQ2gqtOphc+gVNGpIUF0fBteDgx2LVwcVZVwdXQRD8AHEXnBRdpMT/JYUWMR4c9+PdvcfdO0BoVplq9sQAVbOMdCIu5vKrYuAVfoxjABFEJWbqycxiFp7j6x4+vt5FeJb3uT/HoFIwGeATiWNMNyziDeK5TUvnvE8cYmVJIT4nnjLogsSPXJddfuNccljgmSEjm54nDhGLpS6Wu5iVDZV4ljisqBrlCzmXFc5bnNVqnbXvyV8YLGgrGa7THEMCS0giBREy6qigCov6qkAjxUSa9uMe/lHHnyKXTK4KGDkWUIMKyfGD/8Hvbs3izLSbFIwDvS+2/TEBBHaBVsO2v49tu3UC+J+BK63jrzWB6CfpjY4WPgKGtoGL644m7wGXO8DIky4ZkiP5aQrFIvB+Rt+UB4Zvgf41t7f2Pk4fgCx1tXwDHBwCkyXKXvd4d193b/+eaff3Ayz0cvFgq+bJAAANdmlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNC40LjAtRXhpdjIiPgogPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iCiAgICB4bWxuczpzdEV2dD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlRXZlbnQjIgogICAgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIgogICAgeG1sbnM6R0lNUD0iaHR0cDovL3d3dy5naW1wLm9yZy94bXAvIgogICAgeG1sbnM6dGlmZj0iaHR0cDovL25zLmFkb2JlLmNvbS90aWZmLzEuMC8iCiAgICB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iCiAgIHhtcE1NOkRvY3VtZW50SUQ9ImdpbXA6ZG9jaWQ6Z2ltcDphODY3NDk0YS0xZTNhLTQ1OWUtOWUwZi03ZWE1NWZhMTNlZDAiCiAgIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6ZjVlM2M5OWQtMzY0Yy00NTY5LWI5YTgtMjJiNjQ1YjQ4Yzk3IgogICB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6YjJhYWFhZjktMjYwOC00YTgyLTk0M2UtMWIyN2QwYTY3ZTIwIgogICBkYzpGb3JtYXQ9ImltYWdlL3BuZyIKICAgR0lNUDpBUEk9IjIuMCIKICAgR0lNUDpQbGF0Zm9ybT0iV2luZG93cyIKICAgR0lNUDpUaW1lU3RhbXA9IjE3NDM0MjIwOTQyMDAxMzAiCiAgIEdJTVA6VmVyc2lvbj0iMi4xMC4zOCIKICAgdGlmZjpPcmllbnRhdGlvbj0iMSIKICAgeG1wOkNyZWF0b3JUb29sPSJHSU1QIDIuMTAiCiAgIHhtcDpNZXRhZGF0YURhdGU9IjIwMjU6MDM6MzFUMTk6NTQ6NTIrMDg6MDAiCiAgIHhtcDpNb2RpZnlEYXRlPSIyMDI1OjAzOjMxVDE5OjU0OjUyKzA4OjAwIj4KICAgPHhtcE1NOkhpc3Rvcnk+CiAgICA8cmRmOlNlcT4KICAgICA8cmRmOmxpCiAgICAgIHN0RXZ0OmFjdGlvbj0ic2F2ZWQiCiAgICAgIHN0RXZ0OmNoYW5nZWQ9Ii8iCiAgICAgIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6ZTJiODQ0YzktZWM5Mi00NTI2LThlZGQtNDE4ZDU4YmUyZDNmIgogICAgICBzdEV2dDpzb2Z0d2FyZUFnZW50PSJHaW1wIDIuMTAgKFdpbmRvd3MpIgogICAgICBzdEV2dDp3aGVuPSIyMDI1LTAzLTMxVDE5OjU0OjU0Ii8+CiAgICA8L3JkZjpTZXE+CiAgIDwveG1wTU06SGlzdG9yeT4KICA8L3JkZjpEZXNjcmlwdGlvbj4KIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAKPD94cGFja2V0IGVuZD0idyI/PpTBwPcAAAAGYktHRAD+AP4A/usY1IIAAAAJcEhZcwAAAdgAAAHYAfpcpnIAAAAHdElNRQfpAx8LNjb4tjb+AAAK9ElEQVR42s2beZAV1RXGfzNOEFkVJ2JAo1GIoKhAdOQyGBUj4EIS14hIXVFIdGI0iWhMu0SU3GiVQEQtS8GSW0bURFyCpoJJlaJAD1FiqaAIGaBUUAEBWQIRHfJHf42dl7f1e29mOFVdXfPmbufcc8/yndtVtDCFPugOnAwcC3wb6A0cCHQFOgHVwBZgJ7AGWA00Af8AXjPWfdCS66tqIabrgEuAYUDfHM02A/8GmoGOQAdg3yztVgB/Bp4D5hvrdu+VAgh90AW4ErhCOx3Tu8A84HVgOfCesW5djjEOBg6X0OoAAxyXWOcK4GFgurFu414hgNAHBwLXAQ1S691AI/AYMNtY93GZ4/cEzgEuBYbo563AvcAUY92nbSKA0AfVwDjA6Uz/B/DAZGPd8hY6Wn2BnwGX67hsBH4NzDDWNbeaAEIf9AYeBU4CvgQeAiYZ69bS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";
+    // 檢查必要的模組是否載入
+  function checkRequiredModules() {
+    const required = {
+      'marked': typeof marked !== 'undefined',
+      'TurndownService': typeof TurndownService !== 'undefined',
+      'html2canvas': typeof html2canvas !== 'undefined',
+      'JSZip': typeof JSZip !== 'undefined',
+      'utils': typeof window.utils !== 'undefined',
+      'imageModule': typeof window.imageModule !== 'undefined',
+      'markdownModule': typeof window.markdownModule !== 'undefined',
+      'sillyModule': typeof window.sillyModule !== 'undefined'
+    };
+
+    const missing = Object.entries(required)
+      .filter(([name, loaded]) => !loaded)
+      .map(([name]) => name);
+
+    if (missing.length > 0) {
+      console.error('❌ 缺少必要模組:', missing);
+      return false;
+    }
+    return true;
+  }
+
+  // 等待模組載入
+  async function waitForModules(maxAttempts = 20) {
+    for (let i = 0; i < maxAttempts; i++) {
+      if (checkRequiredModules()) {
+        console.log('✅ 所有必要模組已載入');
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    console.error('❌ 模組載入超時');
+    return false;
+  }
+
+  // 匯出處理邏輯（整合自background.js）
+  async function handleExport(conversationData, settings) {
+    console.log("開始處理匯出...");
+    
+    const selectedMessages = conversationData.filter(m => m.selected);
+    if (!selectedMessages.length) {
+      console.error("沒有任何已勾選的訊息！");
+      throw new Error("沒有選中的訊息");
+    }
+    
+    const fileName = (settings.fileNameBase || "export").replace(/[\/\\?%*:|"<>]/g, "_");
+
+    try {
+      switch(settings.storedFormat) {
+        case "image": {
+          let dataURL;
+          if (settings.storedScreenshotStyle === "bubble") {
+            dataURL = await window.imageModule.generateChatImageBubble(selectedMessages, {
+              splitMode: settings.splitMode,
+              maxHeight: settings.maxHeight,
+              useMarkdown: true,
+              userMsgBgColor: settings.storedUserMsgBgColor,
+              assistantMsgBgColor: settings.storedAssistantMsgBgColor,
+              userAvatar: settings.storedUserAvatar,
+              assistantAvatar: settings.storedAssistantAvatar,
+              imageWidth: settings.storedImageWidth,
+              fontSize: settings.storedFontSize,
+              fontColor: settings.storedFontColor,
+              backgroundColor: settings.storedBackgroundColor,
+              fontFamily: settings.storedFontFamily
+            });
+          } else {
+            dataURL = await window.imageModule.generateChatImageLeft(selectedMessages, {
+              splitMode: settings.splitMode,
+              maxHeight: settings.maxHeight,
+              useMarkdown: true,
+              userMsgBgColor: settings.storedUserMsgBgColor,
+              assistantMsgBgColor: settings.storedAssistantMsgBgColor,
+              userAvatar: settings.storedUserAvatar,
+              assistantAvatar: settings.storedAssistantAvatar,
+              imageWidth: settings.storedImageWidth,
+              fontSize: settings.storedFontSize,
+              fontColor: settings.storedFontColor,
+              backgroundColor: settings.storedBackgroundColor,
+              fontFamily: settings.storedFontFamily
+            });
+          }
+          
+          if (Array.isArray(dataURL)) {
+            // 多張圖片，打包成ZIP
+            const zip = new JSZip();
+            let idx = 1;
+            for (const url of dataURL) {
+              const blob = window.utils.imageDataURLToBlob(url);
+              zip.file(fileName + "-" + (idx++) + ".png", blob);
+            }
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            await downloadFile(zipBlob, fileName + ".zip", "application/zip");
+          } else {
+            // 單張圖片
+            const blob = window.utils.imageDataURLToBlob(dataURL);
+            await downloadFile(blob, fileName + ".png", "image/png");
+          }
+          break;
+        }
+        
+        case "markdown": {
+          const mdContent = window.markdownModule.convertToMD(selectedMessages, settings.storedUserName, settings.storedCharacterName);
+          const blob = new Blob([mdContent], { type: "text/markdown" });
+          await downloadFile(blob, fileName + ".md", "text/markdown");
+          break;
+        }
+        
+        case "silly": {
+          const sillyContent = window.sillyModule.convertToSillyTavernJSONL(selectedMessages, settings.storedUserName, settings.storedCharacterName);
+          const blob = new Blob([sillyContent], { type: "application/x-jsonlines" });
+          await downloadFile(blob, fileName + ".jsonl", "application/x-jsonlines");
+          break;
+        }
+        
+        case "text":
+        default: {
+          const txtContent = window.utils.convertToTXT(selectedMessages, settings.storedUserName, settings.storedCharacterName);
+          const blob = new Blob([txtContent], { type: "text/plain" });
+          await downloadFile(blob, fileName + ".txt", "text/plain");
+          break;
+        }
+      }
+      
+      console.log("匯出完成！");
+      return { ok: true, msg: "匯出處理完成" };
+      
+    } catch (err) {
+      console.error("匯出過程發生錯誤：", err);
+      throw err;
+    }
+  }
+
+  // 下載檔案功能
+  async function downloadFile(blob, filename, contentType) {
+    try {
+      // 方法1: 嘗試使用Chrome Downloads API
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            chrome.runtime.sendMessage({
+              type: "DOWNLOAD_FILE",
+              payload: { 
+                dataUrl: reader.result,
+                filename: filename 
+              }
+            }, (response) => {
+              if (response && response.ok) {
+                resolve();
+              } else {
+                // 如果API失敗，fallback到直接下載
+                directDownload(blob, filename);
+                resolve();
+              }
+            });
+          };
+          reader.onerror = () => {
+            directDownload(blob, filename);
+            resolve();
+          };
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        // 方法2: 直接下載
+        directDownload(blob, filename);
+      }
+    } catch (err) {
+      console.warn("API下載失敗，使用直接下載:", err);
+      directDownload(blob, filename);
+    }
+  }
+
+  // 直接下載（fallback方法）
+  function directDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  }
+
+  // 監聽來自background的消息
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.type === "HANDLE_EXPORT") {
+        const { conversationData, settings } = message.payload;
+        handleExport(conversationData, settings)
+          .then(result => sendResponse(result))
+          .catch(err => sendResponse({ ok: false, msg: "處理失敗", error: err.message }));
+        return true; // 異步響應
+      }
+    });
+  }
   
   // 平台偵測
   function detectPlatform() {
@@ -41,7 +240,7 @@
   async function initChatGPT() {
     console.log('🤖 初始化 ChatGPT 匯出工具');
     
-    const storedData = await browser.storage.local.get({
+    const storedData = await chrome.storage.local.get({
         storedFormat: "text",
         storedUserName: "你",
         storedCharacterName: "ChatGPT",
@@ -73,9 +272,47 @@
       let selectionModeEnabled = false;
       let conversationData = [];
       let currentUrl = window.location.pathname;
+      const chatGptTurnSelector = "article[data-testid^='conversation-turn'], section[data-testid^='conversation-turn']";
 
       function generateId() {
         return '_' + Math.random().toString(36).substr(2, 9);
+      }
+
+      function getChatGptTurns() {
+        return Array.from(document.querySelectorAll(chatGptTurnSelector));
+      }
+
+      function cleanupChatGptClone(cloned) {
+        cloned.querySelectorAll([
+          ".chat-export-checkbox",
+          ".sr-only",
+          "button",
+          "input[data-testid='collapsible-user-message-toggle-checkbox']",
+          "label[data-testid='collapsible-user-message-toggle']",
+          "[role='group'][aria-label]"
+        ].join(",")).forEach(el => el.remove());
+        return cloned;
+      }
+
+      function getChatGptRole(turn, roleContainer) {
+        return roleContainer?.getAttribute("data-message-author-role")
+          || turn.getAttribute("data-turn")
+          || (turn.querySelector(".agent-turn, .markdown") ? "assistant" : "user");
+      }
+
+      function getChatGptContentNode(root, role) {
+        const roleNode = root.querySelector("[data-message-author-role]");
+        if (role === "user") {
+          return roleNode?.querySelector('[data-testid="collapsible-user-message-content"]')
+            || roleNode?.querySelector(".whitespace-pre-wrap")
+            || roleNode
+            || root;
+        }
+
+        return roleNode?.querySelector(".markdown")
+          || root.querySelector(".markdown")
+          || roleNode
+          || root;
       }
 
       // <<< MODIFIED >>> 合併了新舊版的邏輯
@@ -90,7 +327,7 @@
           document.querySelectorAll(".chat-export-checkbox").forEach(cb => cb.remove());
           
           // 移除舊的標記，確保能重新掃描
-          const allArticles = document.querySelectorAll("article[data-testid^='conversation-turn']");
+          const allArticles = getChatGptTurns();
           allArticles.forEach(art => art.removeAttribute("data-exported"));
         }
       }
@@ -101,7 +338,7 @@
         checkIfChatChanged(); 
 
         // 1. 獲取當前頁面上所有對話 article 元素
-        const currentArticles = Array.from(document.querySelectorAll("article[data-testid^='conversation-turn']"));
+        const currentArticles = getChatGptTurns();
         const currentArticleSet = new Set(currentArticles);
 
         // 2.【關鍵】清理 conversationData：移除所有在當前頁面上已不存在的 DOM 元素對應的資料
@@ -116,17 +353,18 @@
           if (!existingElementsInConvData.has(article)) {
             // 這是一個全新的訊息，處理並加入
             const cloned = article.cloneNode(true);
-            cloned.querySelectorAll("h5.sr-only, h6.sr-only").forEach(el => el.remove());
+            cleanupChatGptClone(cloned);
             
-            const roleContainer = cloned.querySelector("div[data-message-author-role]");
-            const role = roleContainer ? roleContainer.getAttribute("data-message-author-role") : "assistant";
-            const finalText = cloned.innerText.trim();
+            const roleContainer = cloned.querySelector("[data-message-author-role]");
+            const role = getChatGptRole(article, roleContainer);
+            const contentNode = getChatGptContentNode(cloned, role);
+            const finalText = (contentNode.innerText || contentNode.textContent || "").trim();
 
             const newMessageData = {
               id: generateId(),
               role,
               text: finalText,
-              markdown: getMarkdownFromMessage(cloned, role === "user"),
+              markdown: getMarkdownFromMessage(contentNode, role === "user"),
               element: article, // 保留對真實 DOM 的引用
               selected: true
             };
@@ -419,7 +657,7 @@
         }
         fmtBtn.addEventListener("click", async () => {
           storedFormat = fmt.val;
-          await browser.storage.local.set({ storedFormat });
+          await chrome.storage.local.set({ storedFormat });
           Array.from(exportDropdownMenu.children).forEach(child => {
             child.style.backgroundColor = (child.textContent === fmt.label ? "#777" : "");
           });
@@ -518,8 +756,8 @@
               { label: "角色名稱", value: storedCharacterName, key: "storedCharacterName" }
             ]},
             { label: "頭像設定", fields: [
-              { label: "使用者頭像", value: storedUserAvatar || defaultAvatar, key: "storedUserAvatar" },
-              { label: "角色頭像", value: storedAssistantAvatar || defaultAvatar, key: "storedAssistantAvatar" }
+              { label: "使用者頭像", value: storedUserAvatar, key: "storedUserAvatar" },
+              { label: "角色頭像", value: storedAssistantAvatar, key: "storedAssistantAvatar" }
             ]},
             { label: "外觀設定", fields: [
               { label: "圖片寬度 (px)", value: storedImageWidth, key: "storedImageWidth" },
@@ -599,7 +837,7 @@
                       const key = field.key === "storedUserAvatar" ? "storedUserAvatar" : "storedAssistantAvatar";
                       if (key === "storedUserAvatar") storedUserAvatar = dataURL;
                       else storedAssistantAvatar = dataURL;
-                      await browser.storage.local.set({ [key]: dataURL });
+                      await chrome.storage.local.set({ [key]: dataURL });
                     };
                     reader.readAsDataURL(file);
                   }
@@ -643,7 +881,7 @@
                   case "storedUserMsgBgColor": storedUserMsgBgColor = newValue || "#313131"; break;
                   case "storedAssistantMsgBgColor": storedAssistantMsgBgColor = newValue || "#202020"; break;
                 }
-                await browser.storage.local.set({ [field.key]: newValue });
+                await chrome.storage.local.set({ [field.key]: newValue });
               });
       
               groupContainer.appendChild(input);
@@ -753,7 +991,7 @@
           if (firstSelected) containerElem = firstSelected.element.parentElement;
         }
         if (!containerElem) {
-          containerElem = document.querySelector('article[data-testid^="conversation-turn"]')?.parentElement;
+          containerElem = document.querySelector(chatGptTurnSelector)?.parentElement;
         }
         if (!containerElem) {
           console.error("找不到對話容器 (triggerImageConversion)");
@@ -770,7 +1008,7 @@
           const cloned = original.cloneNode(true);
         
           // 1. 移除 <h5>/<h6> 的 sr-only
-          cloned.querySelectorAll("h5.sr-only, h6.sr-only").forEach(el => el.remove());
+          cleanupChatGptClone(cloned);
         
           // 2. 圖片處理：把原始圖片（已轉 base64）塞回 cloned
           const originalImgs = original.querySelectorAll("img");
@@ -780,7 +1018,7 @@
           });
         
           // 3. 只取「真正訊息」的容器（class 名太長我他媽也會背）
-          const contentDiv = cloned.querySelector("div.flex.max-w-full.flex-col.grow");
+          const contentDiv = getChatGptContentNode(cloned, msg.role);
         
           // 安全檢查：沒有的話就放空
           msg.html = contentDiv ? contentDiv.innerHTML : "<p>（內容消失惹 QQ）</p>";
@@ -868,12 +1106,13 @@
           }
         };
       
-        browser.runtime.sendMessage({
-          type: "DO_EXPORT",
-          payload: payload
-        }).then(response => {
-          console.log("Content script: 收到 background 回覆 =>", response);
-        });
+        try {
+          // 直接在content script中執行匯出邏輯
+          const result = await handleExport(sanitizedData, payload.settings);
+          console.log("匯出完成:", result);
+        } catch (error) {
+          console.error("匯出失敗:", error);
+        }
       }
       
       // 幫訊息加入勾選框
@@ -913,7 +1152,9 @@
       //    這比單純的 waitForElement 更能應對 SPA 的複雜載入
       let startupInterval = setInterval(() => {
         const mainElem = document.querySelector("main");
-        const threadElem = document.querySelector('div[class*="react-scroll-to-bottom"]'); // ChatGPT 實際對話滾動區
+        const threadElem = document.querySelector(chatGptTurnSelector)
+          || document.querySelector("[data-message-author-role]")
+          || document.querySelector('div[class*="react-scroll-to-bottom"]'); // ChatGPT 實際對話滾動區
 
         // 必須等到 <main> 和對話滾動區都出現，才代表頁面載入完成
         if (mainElem && threadElem) {
@@ -941,7 +1182,7 @@
   async function initGemini() {
     console.log('🔮 初始化 Gemini 匯出工具');
     
-    const storedData = await browser.storage.local.get({
+    const storedData = await chrome.storage.local.get({
       storedFormat: "text",
       storedUserName: "你",
       storedCharacterName: "Gemini",
@@ -1389,7 +1630,7 @@
       }
       fmtBtn.addEventListener("click", async () => {
         storedFormat = fmt.val;
-        await browser.storage.local.set({ storedFormat });
+        await chrome.storage.local.set({ storedFormat });
         Array.from(exportDropdownMenu.children).forEach(child => {
           child.style.backgroundColor = (child.textContent === fmt.label ? "#777" : "");
         });
@@ -1487,8 +1728,8 @@
             { label: "角色名稱", value: storedCharacterName, key: "storedCharacterName" }
           ]},
           { label: "頭像設定", fields: [
-            { label: "使用者頭像", value: storedUserAvatar || defaultAvatar, key: "storedUserAvatar" },
-            { label: "角色頭像", value: storedAssistantAvatar || defaultAvatar, key: "storedAssistantAvatar" }
+            { label: "使用者頭像", value: storedUserAvatar, key: "storedUserAvatar" },
+            { label: "角色頭像", value: storedAssistantAvatar, key: "storedAssistantAvatar" }
           ]},
           { label: "外觀設定", fields: [
             { label: "圖片寬度 (px)", value: storedImageWidth, key: "storedImageWidth" },
@@ -1568,7 +1809,7 @@
                     const key = field.key === "storedUserAvatar" ? "storedUserAvatar" : "storedAssistantAvatar";
                     if (key === "storedUserAvatar") storedUserAvatar = dataURL;
                     else storedAssistantAvatar = dataURL;
-                    await browser.storage.local.set({ [key]: dataURL });
+                    await chrome.storage.local.set({ [key]: dataURL });
                   };
                   reader.readAsDataURL(file);
                 }
@@ -1612,7 +1853,7 @@
                 case "storedUserMsgBgColor": storedUserMsgBgColor = newValue || "#313131"; break;
                 case "storedAssistantMsgBgColor": storedAssistantMsgBgColor = newValue || "#202020"; break;
               }
-              await browser.storage.local.set({ [field.key]: newValue });
+              await chrome.storage.local.set({ [field.key]: newValue });
             });
     
             groupContainer.appendChild(input);
@@ -1702,7 +1943,7 @@
       });
     }
 
-    // 取得 Gemini 聊天室標題，若無則回退 document.title
+    // Get Gemini chat title; fallback to document title
     function getGeminiConversationTitle() {
       const titleElem = document.querySelector(".conversation-title.gds-title-m");
       const titleText = titleElem?.textContent?.trim();
@@ -1821,13 +2062,15 @@
         }
       };
     
-      browser.runtime.sendMessage({
-        type: "DO_EXPORT",
-        payload: payload
-      }).then(response => {
-        console.log("Content script: 收到 background 回覆 =>", response);
-      });
-    }
+      try {
+          // 直接在content script中執行匯出邏輯
+          const result = await handleExport(sanitizedData, payload.settings);
+          console.log("匯出完成:", result);
+          
+        } catch (error) {
+          console.error("匯出失敗:", error);
+        }
+      }
     
     // 幫訊息加入勾選框
     function addCheckboxToMessage(element, msgId) {
@@ -1889,11 +2132,10 @@
     console.log('✅ Gemini 匯出工具初始化完成');
   }
 
-
   async function initMistralChat() {
     console.log('🤖 初始化 Mistral 匯出工具');
     
-    const storedData = await browser.storage.local.get({
+    const storedData = await chrome.storage.local.get({
         storedFormat: "text",
         storedUserName: "你",
         storedCharacterName: "Mistral",
@@ -2309,7 +2551,7 @@
         }
         fmtBtn.addEventListener("click", async () => {
           storedFormat = fmt.val;
-          await browser.storage.local.set({ storedFormat });
+          await chrome.storage.local.set({ storedFormat });
           Array.from(exportDropdownMenu.children).forEach(child => {
             child.style.backgroundColor = (child.textContent === fmt.label ? "#777" : "");
           });
@@ -2408,8 +2650,8 @@
               { label: "角色名稱", value: storedCharacterName, key: "storedCharacterName" }
             ]},
             { label: "頭像設定", fields: [
-              { label: "使用者頭像", value: storedUserAvatar || defaultAvatar, key: "storedUserAvatar" },
-              { label: "角色頭像", value: storedAssistantAvatar || defaultAvatar, key: "storedAssistantAvatar" }
+              { label: "使用者頭像", value: storedUserAvatar, key: "storedUserAvatar" },
+              { label: "角色頭像", value: storedAssistantAvatar, key: "storedAssistantAvatar" }
             ]},
             { label: "外觀設定", fields: [
               { label: "圖片寬度 (px)", value: storedImageWidth, key: "storedImageWidth" },
@@ -2489,7 +2731,7 @@
                       const key = field.key === "storedUserAvatar" ? "storedUserAvatar" : "storedAssistantAvatar";
                       if (key === "storedUserAvatar") storedUserAvatar = dataURL;
                       else storedAssistantAvatar = dataURL;
-                      await browser.storage.local.set({ [key]: dataURL });
+                      await chrome.storage.local.set({ [key]: dataURL });
                     };
                     reader.readAsDataURL(file);
                   }
@@ -2533,7 +2775,7 @@
                   case "storedUserMsgBgColor": storedUserMsgBgColor = newValue || "#313131"; break;
                   case "storedAssistantMsgBgColor": storedAssistantMsgBgColor = newValue || "#202020"; break;
                 }
-                await browser.storage.local.set({ [field.key]: newValue });
+                await chrome.storage.local.set({ [field.key]: newValue });
               });
       
               groupContainer.appendChild(input);
@@ -2746,12 +2988,13 @@
           }
         };
       
-        browser.runtime.sendMessage({
-          type: "DO_EXPORT",
-          payload: payload
-        }).then(response => {
-          console.log("Content script: 收到 background 回覆 =>", response);
-        });
+        try {
+          // 直接在content script中執行匯出邏輯
+          const result = await handleExport(sanitizedData, payload.settings);
+          console.log("匯出完成:", result);
+        } catch (error) {
+          console.error("匯出失敗:", error);
+        }
       }
       
       // 幫訊息加入勾選框
@@ -2809,11 +3052,11 @@
     
     console.log('✅ Mistral 匯出工具初始化完成');
   }
-
+  
   async function initClaude() {
     console.log('🤖 初始化 Claude 匯出工具');
     
-    const storedData = await browser.storage.local.get({
+    const storedData = await chrome.storage.local.get({
         storedFormat: "text",
         storedUserName: "你",
         storedCharacterName: "Claude",
@@ -2899,7 +3142,7 @@
             const role = userMessages.includes(messageEl) ? "user" : "assistant";
             const cloned = messageEl.cloneNode(true);
             cloned.querySelectorAll("button, .copy, .lucide, svg").forEach(el => el.remove());
-            // Remove model selector chip (model picker like "Haiku 4.5")
+            // Remove model selector chip (e.g., "Haiku 4.5") so it is not exported as a message
             cloned.querySelectorAll("div.whitespace-nowrap.select-none").forEach(el => el.remove());
 
             const newMessageData = {
@@ -3242,7 +3485,7 @@
         }
         fmtBtn.addEventListener("click", async () => {
           storedFormat = fmt.val;
-          await browser.storage.local.set({ storedFormat });
+          await chrome.storage.local.set({ storedFormat });
           Array.from(exportDropdownMenu.children).forEach(child => {
             child.style.backgroundColor = (child.textContent === fmt.label ? "#777" : "");
           });
@@ -3422,7 +3665,7 @@
                       const key = field.key === "storedUserAvatar" ? "storedUserAvatar" : "storedAssistantAvatar";
                       if (key === "storedUserAvatar") storedUserAvatar = dataURL;
                       else storedAssistantAvatar = dataURL;
-                      await browser.storage.local.set({ [key]: dataURL });
+                      await chrome.storage.local.set({ [key]: dataURL });
                     };
                     reader.readAsDataURL(file);
                   }
@@ -3466,7 +3709,7 @@
                   case "storedUserMsgBgColor": storedUserMsgBgColor = newValue || "#313131"; break;
                   case "storedAssistantMsgBgColor": storedAssistantMsgBgColor = newValue || "#202020"; break;
                 }
-                await browser.storage.local.set({ [field.key]: newValue });
+                await chrome.storage.local.set({ [field.key]: newValue });
               });
       
               groupContainer.appendChild(input);
@@ -3703,14 +3946,15 @@
           }
         };
       
-        browser.runtime.sendMessage({
-          type: "DO_EXPORT",
-          payload: payload
-        }).then(response => {
-          console.log("Content script: 收到 background 回覆 =>", response);
-        });
+        try {
+          // 直接在content script中執行匯出邏輯
+          const result = await handleExport(sanitizedData, payload.settings);
+          console.log("匯出完成:", result);
+        } catch (error) {
+          console.error("匯出失敗:", error);
+        }
       }
-      
+
       // 幫訊息加入勾選框
       function addCheckboxToMessage(article, msgId) {
         // 確保不重複增加
@@ -3797,7 +4041,7 @@
   async function initGrok() {
     console.log('🛰️ 初始化 Grok 匯出工具');
     
-    const storedData = await browser.storage.local.get({
+    const storedData = await chrome.storage.local.get({
         storedFormat: "text",
         storedUserName: "你",
         storedCharacterName: "Grok",
@@ -4081,7 +4325,7 @@
       const selectOptions = [
         { value: "all", label: "全選" },
         { value: "user", label: "只選 user" },
-        { value: "assistant", label: "只選 Gemini" }
+        { value: "assistant", label: "只選 Grok" }
       ];
       
       selectOptions.forEach(opt => {
@@ -4180,7 +4424,7 @@
         }
         fmtBtn.addEventListener("click", async () => {
           storedFormat = fmt.val;
-          await browser.storage.local.set({ storedFormat });
+          await chrome.storage.local.set({ storedFormat });
           Array.from(exportDropdownMenu.children).forEach(child => {
             child.style.backgroundColor = (child.textContent === fmt.label ? "#777" : "");
           });
@@ -4359,7 +4603,7 @@
                       const key = field.key === "storedUserAvatar" ? "storedUserAvatar" : "storedAssistantAvatar";
                       if (key === "storedUserAvatar") storedUserAvatar = dataURL;
                       else storedAssistantAvatar = dataURL;
-                      await browser.storage.local.set({ [key]: dataURL });
+                      await chrome.storage.local.set({ [key]: dataURL });
                     };
                     reader.readAsDataURL(file);
                   }
@@ -4403,7 +4647,7 @@
                   case "storedUserMsgBgColor": storedUserMsgBgColor = newValue || "#313131"; break;
                   case "storedAssistantMsgBgColor": storedAssistantMsgBgColor = newValue || "#202020"; break;
                 }
-                await browser.storage.local.set({ [field.key]: newValue });
+                await chrome.storage.local.set({ [field.key]: newValue });
               });
       
               groupContainer.appendChild(input);
@@ -4597,13 +4841,12 @@
             fileNameBase: document.title
           }
         };
-      
-        browser.runtime.sendMessage({
-          type: "DO_EXPORT",
-          payload: payload
-        }).then(response => {
-          console.log("Content script: 收到 background 回應 =>", response);
-        });
+        try {
+          const result = await handleExport(sanitizedData, payload.settings);
+          console.log("匯出完成:", result);
+        } catch (error) {
+          console.error("匯出失敗:", error);
+        }
       }
 
       function addCheckboxToMessage(article, msgId) {
@@ -4655,7 +4898,7 @@
     console.log('✅Grok 匯出工具初始化完成');
   }
 
-
+  // 主執行邏輯
   async function main() {
     try {
       const platform = await waitForPlatform();
