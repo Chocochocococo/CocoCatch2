@@ -31,8 +31,14 @@
     return matched ? matched[1] : null;
   }
 
+  // Firefox 的 content script 跑在自己的沙箱裡，fetch 沒有可解析相對路徑的 base URL，
+  // 丟 "/api/..." 會直接噴 "is not a valid URL"。一律組成絕對網址，兩家瀏覽器都吃。
+  function apiUrl(path) {
+    return window.location.origin + path;
+  }
+
   async function getAccessToken() {
-    const res = await fetch("/api/auth/session", {
+    const res = await fetch(apiUrl("/api/auth/session"), {
       credentials: "include",
       headers: { "Accept": "application/json" }
     });
@@ -44,7 +50,7 @@
 
   async function fetchConversation(conversationId) {
     const token = await getAccessToken();
-    const res = await fetch(`/backend-api/conversation/${conversationId}`, {
+    const res = await fetch(apiUrl(`/backend-api/conversation/${conversationId}`), {
       credentials: "include",
       headers: {
         "Authorization": `Bearer ${token}`,
