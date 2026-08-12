@@ -43,6 +43,7 @@
     
     const storedData = await browser.storage.local.get({
         storedFormat: "text",
+        storedBranchFormat: "markdown",
         storedUserName: "你",
         storedCharacterName: "ChatGPT",
         storedImageWidth: 800,
@@ -57,6 +58,7 @@
         storedAssistantMsgBgColor: "#202020"
       });
       let storedFormat = storedData.storedFormat;
+      let storedBranchFormat = storedData.storedBranchFormat;
       let storedUserName = storedData.storedUserName;
       let storedCharacterName = storedData.storedCharacterName;
       let storedImageWidth = storedData.storedImageWidth;
@@ -116,6 +118,18 @@
         await delay(ms);
       }
 
+      // 掃描的節奏參數。對話越長，ChatGPT 在頂端向伺服器要更舊訊息就越慢，
+      // 等太短會誤判成「已經到頂」而提早收工，這是最容易漏訊息的地方。
+      // 網路慢或對話特別長的話，把 topLoadTimeoutMs 和 topRetries 調大。
+      // 也可以在 console 直接改：window.__cocoCatchSweep.topLoadTimeoutMs = 20000
+      const SWEEP = window.__cocoCatchSweep = window.__cocoCatchSweep || {
+        stepRatio: 0.7,          // 每次捲動幾個視窗高（越小越保險、越慢）
+        settleMaxMs: 1500,       // 等虛擬列表把新的 turn 掛上來的上限
+        settleStableTicks: 3,    // 連續幾次沒變化才算穩定
+        topLoadTimeoutMs: 12000, // 頂端等伺服器補更舊訊息的上限
+        topRetries: 6            // 頂端沒動靜時，重新觸發載入的次數
+      };
+
       // 目前掛載中的 turn 長什麼樣，用來判斷畫面還在不在變
       function turnsSignature() {
         const turns = getChatGptTurns();
@@ -126,16 +140,16 @@
 
       // 等 ChatGPT 把新的 turn 掛上來。虛擬化渲染多半一兩幀就好，
       // 與其每步都固定等一個保守的秒數，不如等它真的不動了就走。
-      async function waitForTurnsSettle(maxMs = 700) {
+      async function waitForTurnsSettle(maxMs = SWEEP.settleMaxMs) {
         const deadline = performance.now() + maxMs;
         let last = turnsSignature();
         let stable = 0;
         while (performance.now() < deadline) {
           await new Promise(r => requestAnimationFrame(r));
-          await delay(30);
+          await delay(40);
           const now = turnsSignature();
           if (now === last) {
-            if (++stable >= 2) return;
+            if (++stable >= SWEEP.settleStableTicks) return;
           } else {
             stable = 0;
             last = now;
@@ -144,18 +158,28 @@
       }
 
       // 捲到頂之後 ChatGPT 會再向伺服器要更舊的訊息，這是網路請求，得等久一點。
-      // 回傳有沒有真的補進新東西，沒有就代表到頭了。
-      async function waitForOlderMessages(maxMs = 1500) {
+      // 回傳有沒有真的補進新東西。
+      async function waitForOlderMessages(maxMs = SWEEP.topLoadTimeoutMs) {
         const deadline = performance.now() + maxMs;
         const before = turnsSignature();
         while (performance.now() < deadline) {
-          await delay(60);
+          await delay(80);
           if (turnsSignature() !== before) {
             await waitForTurnsSettle();
             return true;
           }
         }
         return false;
+      }
+
+      // 目前收集到的最小 turn 編號。ChatGPT 的編號是從 0 開始的，
+      // 所以看到 0 就代表真的到了對話最開頭，不必再靠「等不到新東西」猜。
+      function minTurnIndex() {
+        let min = Infinity;
+        for (const msg of conversationData) {
+          if (Number.isFinite(msg.turnIndex) && msg.turnIndex < min) min = msg.turnIndex;
+        }
+        return min;
       }
 
       // turnIndex 是連續整數，缺號就代表那一段從沒掛載過、沒掃到
@@ -196,6 +220,7 @@
         document.body.appendChild(toast);
         return {
           update: n => { toast.textContent = `正在掃描對話… 已收集 ${n} 則`; },
+          setText: text => { toast.textContent = text; },
           done: () => toast.remove()
         };
       }
@@ -207,7 +232,7 @@
         const restoreTop = scroller.scrollTop;
         const startedAtBottom =
           restoreTop >= scroller.scrollHeight - scroller.clientHeight - 4;
-        const step = Math.max(200, Math.round(scroller.clientHeight * 0.8));
+        const step = Math.max(200, Math.round(scroller.clientHeight * SWEEP.stepRatio));
         const toast = showSweepToast();
         const report = n => { toast.update(n); onProgress?.(n); };
 
@@ -215,25 +240,48 @@
           await scanConversation();
 
           // 一路往上捲到頂
-          for (let i = 0; i < 600; i++) {
+          let topRetries = 0;
+          for (let i = 0; i < 900; i++) {
             const before = scroller.scrollTop;
             scroller.scrollTop = Math.max(0, before - step);
             await waitForTurnsSettle();
             await scanConversation();
             report(conversationData.length);
 
-            if (scroller.scrollTop <= 0) {
-              // 到頂了：等伺服器補更舊的訊息，沒補就是真的到頭了
-              const grew = await waitForOlderMessages();
-              await scanConversation();
-              report(conversationData.length);
-              if (!grew) break;
-            } else if (scroller.scrollTop >= before) {
-              break; // 捲不動了，避免空轉
+            if (scroller.scrollTop > 0) {
+              if (scroller.scrollTop >= before) break; // 捲不動了，避免空轉
+              topRetries = 0;
+              continue;
             }
+
+            // 捲軸到 0 了，但這不代表對話到頭 —— ChatGPT 還要向伺服器要更舊的訊息，
+            // 對話越長這一步越慢。等不到就直接收工，正是會漏掉大半對話的原因。
+            const grew = await waitForOlderMessages();
+            await scanConversation();
+            report(conversationData.length);
+            if (grew) { topRetries = 0; continue; }
+
+            // 編號 0 代表真的看到對話的第一則了，可以放心結束
+            if (minTurnIndex() <= 0) break;
+
+            if (++topRetries > SWEEP.topRetries) {
+              console.warn(
+                `[CocoCatch] 頂端重試 ${SWEEP.topRetries} 次仍沒有更舊的訊息，` +
+                `目前最舊的是第 ${minTurnIndex()} 則。網路較慢的話可調大 ` +
+                `window.__cocoCatchSweep.topLoadTimeoutMs 後重試。`
+              );
+              break;
+            }
+
+            // 推離頂端再回來，重新觸發懶載入（有些情況停在 0 不會再發請求）
+            toast.setText(`正在等待更舊的訊息…（第 ${topRetries} 次重試）`);
+            scroller.scrollTop = Math.round(scroller.clientHeight * 0.5);
+            await waitForTurnsSettle();
+            scroller.scrollTop = 0;
+            await waitForTurnsSettle();
           }
 
-          // 上行那趟每步只捲 0.8 個視窗高、前後有重疊，通常就掃完了。
+          // 上行那趟每步捲不到一個視窗高、前後有重疊，通常就掃完了。
           // 用 turn 編號的連續性驗證，真的缺號才值得再跑一趟。
           if (findTurnIndexGaps().length) {
             for (let i = 0; i < 600; i++) {
@@ -611,6 +659,72 @@
       exportRow.style.display = "flex";
       exportRow.style.alignItems = "center";
       exportRow.style.gap = "4px";
+
+      // 全分支匯出：不走 DOM，直接向 ChatGPT 要整棵對話樹（含所有分支）
+      const branchBtn = document.createElement("button");
+      branchBtn.textContent = "全";
+      branchBtn.style.width = "30px";
+      branchBtn.style.backgroundColor = fixedButtonStyle.backgroundColor;
+      branchBtn.style.color = fixedButtonStyle.color;
+      branchBtn.style.border = fixedButtonStyle.border;
+      branchBtn.style.borderRadius = fixedButtonStyle.borderRadius;
+      branchBtn.style.padding = fixedButtonStyle.padding;
+      branchBtn.style.cursor = fixedButtonStyle.cursor;
+      branchBtn.title = "全分支匯出：取得整串對話，含所有重新生成／編輯產生的分支";
+      branchBtn.addEventListener("click", exportAllBranches);
+      // 「全」擺第一排最前面，它的格式選單擺第二排最前面，
+      // 兩顆同寬上下對齊，兩排的左緣才不會參差
+      selectRow.insertBefore(branchBtn, selectRow.firstChild);
+
+      // 「全」的格式選單（md / html），跟 Export 那顆的下拉一樣的做法
+      const branchFmtBtn = document.createElement("button");
+      branchFmtBtn.textContent = "▾";
+      branchFmtBtn.style.width = "30px";
+      branchFmtBtn.style.backgroundColor = fixedButtonStyle.backgroundColor;
+      branchFmtBtn.style.color = fixedButtonStyle.color;
+      branchFmtBtn.style.border = fixedButtonStyle.border;
+      branchFmtBtn.style.borderRadius = fixedButtonStyle.borderRadius;
+      branchFmtBtn.style.padding = fixedButtonStyle.padding;
+      branchFmtBtn.style.cursor = fixedButtonStyle.cursor;
+      branchFmtBtn.title = "全分支匯出的格式（Markdown／HTML）";
+      exportRow.insertBefore(branchFmtBtn, exportRow.firstChild);
+
+      const branchFmtMenu = document.createElement("div");
+      branchFmtMenu.style.position = "absolute";
+      branchFmtMenu.style.backgroundColor = "#555";
+      branchFmtMenu.style.border = "1px solid #777";
+      branchFmtMenu.style.borderRadius = "4px";
+      branchFmtMenu.style.padding = "4px";
+      branchFmtMenu.style.bottom = "35px";
+      branchFmtMenu.style.left = "0";
+      branchFmtMenu.style.display = "none";
+      [
+        { val: "markdown", label: "全分支 → MARKDOWN" },
+        { val: "html",     label: "全分支 → HTML" }
+      ].forEach(fmt => {
+        const item = document.createElement("div");
+        item.textContent = fmt.label;
+        item.style.padding = "4px";
+        item.style.cursor = "pointer";
+        item.style.whiteSpace = "nowrap";
+        if (fmt.val === storedBranchFormat) item.style.backgroundColor = "#777";
+        item.addEventListener("click", async () => {
+          storedBranchFormat = fmt.val;
+          await browser.storage.local.set({ storedBranchFormat });
+          Array.from(branchFmtMenu.children).forEach(child => {
+            child.style.backgroundColor = (child.textContent === fmt.label ? "#777" : "");
+          });
+          branchFmtMenu.style.display = "none";
+        });
+        branchFmtMenu.appendChild(item);
+      });
+      branchFmtBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        branchFmtMenu.style.display = branchFmtMenu.style.display === "none" ? "block" : "none";
+      });
+      document.addEventListener("click", () => { branchFmtMenu.style.display = "none"; });
+      exportRow.appendChild(branchFmtMenu);
+
 
       const exportBtnText = document.createElement("button");
       exportBtnText.textContent = "Export";
@@ -1046,6 +1160,61 @@
             storedAssistantMsgBgColor
         };
         }
+
+      /*****************************************
+       * 全分支匯出
+       *
+       * ChatGPT 的對話在後端是一棵樹，每次重新生成或編輯訊息都會多長一個分支，
+       * 但網頁只渲染 current_node 回推到根的那一條路徑。所以這條路不走 DOM，
+       * 直接跟後端要整棵樹。失敗不影響既有匯出流程，兩者互相獨立。
+       *****************************************/
+      async function exportAllBranches() {
+        if (typeof chatgptTree === "undefined") {
+          alert("chatgpt_tree.js 沒有載入。請確認 manifest 的 content_scripts 有列入該檔，然後重新載入擴充。");
+          return;
+        }
+
+        const toast = showSweepToast();
+        try {
+          const conversationId = chatgptTree.getConversationId();
+          if (!conversationId) {
+            alert("這個頁面看不到對話 ID，請先開啟一串對話（網址要長得像 /c/xxxxxxxx）。");
+            return;
+          }
+
+          toast.setText("正在取得對話樹…");
+          const conv = await chatgptTree.fetchConversation(conversationId);
+
+          toast.setText("正在整理分支…");
+          const treeOpts = {
+            userName: storedUserName,
+            assistantName: storedCharacterName
+          };
+          const asHtml = (storedBranchFormat === "html");
+          const result = asHtml
+            ? chatgptTree.toHtml(conv, treeOpts)
+            : chatgptTree.toMarkdown(conv, treeOpts);
+          const stats = result.stats;
+
+          const base = chatgptTree.sanitizeFileName(conv.title || document.title);
+          chatgptTree.download(
+            asHtml ? result.html : result.markdown,
+            `${base}_全分支.${asHtml ? "html" : "md"}`,
+            asHtml ? "text/html;charset=utf-8" : "text/markdown;charset=utf-8"
+          );
+
+          alert(
+            `完成！\n\n訊息 ${stats.messages} 則\n` +
+            `分支點 ${stats.branchPoints} 個\n` +
+            `分支總數 ${stats.branches} 條`
+          );
+        } catch (err) {
+          console.error("全分支匯出失敗:", err);
+          alert("全分支匯出失敗：" + (err && err.message ? err.message : err));
+        } finally {
+          toast.done();
+        }
+      }
 
       /*****************************************
        * 匯出功能：收集對話後，交給 background 層處理
