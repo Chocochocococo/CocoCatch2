@@ -272,6 +272,9 @@
       let selectionModeEnabled = false;
       let conversationData = [];
       let currentUrl = window.location.pathname;
+      // 使用者手動動過「全選」時記住他的意思（true/false）；null = 交給 storedFilter 決定。
+      // 匯出前的掃描會撈進大量沒看過的訊息，得靠這個決定它們預設要不要被選取。
+      let globalSelectOverride = null;
       const chatGptTurnSelector = "article[data-testid^='conversation-turn'], section[data-testid^='conversation-turn']";
 
       function generateId() {
@@ -280,6 +283,176 @@
 
       function getChatGptTurns() {
         return Array.from(document.querySelectorAll(chatGptTurnSelector));
+      }
+
+      // 掃描新發現的訊息預設要不要被選取
+      function defaultSelected(role) {
+        if (globalSelectOverride !== null) return globalSelectOverride;
+        if (storedFilter === "user") return role === "user";
+        if (storedFilter === "assistant") return role === "assistant";
+        return true;
+      }
+
+      // ChatGPT 給每則訊息的 UUID，是唯一在卸載／重新掛載後仍不變的識別
+      function getTurnKey(turn) {
+        return turn.querySelector("[data-message-id]")?.getAttribute("data-message-id")
+          || turn.getAttribute("data-testid")
+          || null;
+      }
+
+      // data-testid="conversation-turn-N" 的 N，用來排序已卸載的訊息
+      function getTurnIndex(turn) {
+        const matched = /conversation-turn-(\d+)/.exec(turn.getAttribute("data-testid") || "");
+        return matched ? parseInt(matched[1], 10) : Number.MAX_SAFE_INTEGER;
+      }
+
+      function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      async function waitForRender(ms = 320) {
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        await delay(ms);
+      }
+
+      // 目前掛載中的 turn 長什麼樣，用來判斷畫面還在不在變
+      function turnsSignature() {
+        const turns = getChatGptTurns();
+        return turns.length
+          + ":" + (turns[0]?.getAttribute("data-testid") || "")
+          + ":" + (turns[turns.length - 1]?.getAttribute("data-testid") || "");
+      }
+
+      // 等 ChatGPT 把新的 turn 掛上來。虛擬化渲染多半一兩幀就好，
+      // 與其每步都固定等一個保守的秒數，不如等它真的不動了就走。
+      async function waitForTurnsSettle(maxMs = 700) {
+        const deadline = performance.now() + maxMs;
+        let last = turnsSignature();
+        let stable = 0;
+        while (performance.now() < deadline) {
+          await new Promise(r => requestAnimationFrame(r));
+          await delay(30);
+          const now = turnsSignature();
+          if (now === last) {
+            if (++stable >= 2) return;
+          } else {
+            stable = 0;
+            last = now;
+          }
+        }
+      }
+
+      // 捲到頂之後 ChatGPT 會再向伺服器要更舊的訊息，這是網路請求，得等久一點。
+      // 回傳有沒有真的補進新東西，沒有就代表到頭了。
+      async function waitForOlderMessages(maxMs = 1500) {
+        const deadline = performance.now() + maxMs;
+        const before = turnsSignature();
+        while (performance.now() < deadline) {
+          await delay(60);
+          if (turnsSignature() !== before) {
+            await waitForTurnsSettle();
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // turnIndex 是連續整數，缺號就代表那一段從沒掛載過、沒掃到
+      function findTurnIndexGaps() {
+        const seen = conversationData
+          .map(m => m.turnIndex)
+          .filter(n => Number.isFinite(n) && n !== Number.MAX_SAFE_INTEGER);
+        if (!seen.length) return [];
+        const present = new Set(seen);
+        const gaps = [];
+        for (let n = Math.min(...seen), max = Math.max(...seen); n <= max; n++) {
+          if (!present.has(n)) gaps.push(n);
+        }
+        return gaps;
+      }
+
+      // 找出實際負責捲動對話的容器（ChatGPT 改版過好幾次，用特徵找比寫死 class 穩）
+      function getThreadScroller() {
+        let el = document.querySelector(chatGptTurnSelector)?.parentElement;
+        while (el && el !== document.body && el !== document.documentElement) {
+          const overflowY = getComputedStyle(el).overflowY;
+          if (/(auto|scroll)/.test(overflowY) && el.scrollHeight > el.clientHeight + 20) return el;
+          el = el.parentElement;
+        }
+        return document.scrollingElement || document.documentElement;
+      }
+
+      // 掃描要捲動整頁、耗時數秒，給個提示免得以為當掉了
+      function showSweepToast() {
+        const toast = document.createElement("div");
+        Object.assign(toast.style, {
+          position: "fixed", right: "16px", bottom: "16px", zIndex: "2147483647",
+          background: "#444", color: "#fff", padding: "8px 14px",
+          borderRadius: "6px", fontSize: "13px", pointerEvents: "none",
+          boxShadow: "0 2px 8px rgba(0,0,0,.35)"
+        });
+        toast.textContent = "正在掃描對話…";
+        document.body.appendChild(toast);
+        return {
+          update: n => { toast.textContent = `正在掃描對話… 已收集 ${n} 則`; },
+          done: () => toast.remove()
+        };
+      }
+
+      // ChatGPT 對長對話採虛擬化渲染，只掛載視窗附近的 turn。
+      // 匯出前先把整串捲過一遍，讓每則訊息至少掛載一次、被 scanConversation 快取起來。
+      async function sweepConversation(onProgress) {
+        const scroller = getThreadScroller();
+        const restoreTop = scroller.scrollTop;
+        const startedAtBottom =
+          restoreTop >= scroller.scrollHeight - scroller.clientHeight - 4;
+        const step = Math.max(200, Math.round(scroller.clientHeight * 0.8));
+        const toast = showSweepToast();
+        const report = n => { toast.update(n); onProgress?.(n); };
+
+        try {
+          await scanConversation();
+
+          // 一路往上捲到頂
+          for (let i = 0; i < 600; i++) {
+            const before = scroller.scrollTop;
+            scroller.scrollTop = Math.max(0, before - step);
+            await waitForTurnsSettle();
+            await scanConversation();
+            report(conversationData.length);
+
+            if (scroller.scrollTop <= 0) {
+              // 到頂了：等伺服器補更舊的訊息，沒補就是真的到頭了
+              const grew = await waitForOlderMessages();
+              await scanConversation();
+              report(conversationData.length);
+              if (!grew) break;
+            } else if (scroller.scrollTop >= before) {
+              break; // 捲不動了，避免空轉
+            }
+          }
+
+          // 上行那趟每步只捲 0.8 個視窗高、前後有重疊，通常就掃完了。
+          // 用 turn 編號的連續性驗證，真的缺號才值得再跑一趟。
+          if (findTurnIndexGaps().length) {
+            for (let i = 0; i < 600; i++) {
+              const before = scroller.scrollTop;
+              scroller.scrollTop = before + step;
+              await waitForTurnsSettle();
+              await scanConversation();
+              report(conversationData.length);
+              if (scroller.scrollTop <= before + 1) break;
+            }
+          }
+
+          // 頂端的懶載入可能墊高了內容，原本在底部就回底部，別停在半空中
+          scroller.scrollTop = startedAtBottom ? scroller.scrollHeight : restoreTop;
+          await waitForRender(0);
+          await scanConversation();
+          return conversationData.length;
+        } finally {
+          toast.done();
+        }
       }
 
       function cleanupChatGptClone(cloned) {
@@ -332,58 +505,80 @@
         }
       }
 
+      // 把 turn 的內容複製一份留著，之後原節點被虛擬化卸載仍能匯出
+      function captureTurn(msg, turn, isLastTurn) {
+        const snapshotTurn = turn.cloneNode(true);
+        cleanupChatGptClone(snapshotTurn);
+
+        const roleContainer = snapshotTurn.querySelector("[data-message-author-role]");
+        msg.role = getChatGptRole(turn, roleContainer);
+
+        const contentNode = getChatGptContentNode(snapshotTurn, msg.role);
+        msg.snapshotTurn = snapshotTurn;              // 完整 turn，圖片索引要對得上原節點
+        msg.snapshot = contentNode;                   // 真正的訊息內容，指向 snapshotTurn 內部
+        msg.text = (contentNode.innerText || contentNode.textContent || "").trim();
+        msg.markdown = getMarkdownFromMessage(contentNode, msg.role === "user");
+        // 助理訊息串流中內容會一直變，等它不再是最後一則才算定稿
+        msg.settled = !(isLastTurn && msg.role === "assistant");
+      }
+
       // 這個函式負責掃描並與當前 DOM 同步對話
+      //
+      // ChatGPT 對長對話採虛擬化渲染：只有視窗附近的 turn 會掛載，捲走的會從 DOM 卸載。
+      // 所以這裡「只累加、不因為元素消失而刪除」——改用 data-message-id 當索引，
+      // 並在掃描當下就把內容快照下來，訊息之後被卸載也不影響匯出。
       async function scanConversation() {
         // 每次掃描前都檢查 URL 是否變更，這會處理聊天室切換
-        checkIfChatChanged(); 
+        checkIfChatChanged();
 
-        // 1. 獲取當前頁面上所有對話 article 元素
-        const currentArticles = getChatGptTurns();
-        const currentArticleSet = new Set(currentArticles);
+        const currentTurns = getChatGptTurns();
+        const byKey = new Map(conversationData.map(msg => [msg.key, msg]));
 
-        // 2.【關鍵】清理 conversationData：移除所有在當前頁面上已不存在的 DOM 元素對應的資料
-        //    這一步會自動處理掉「被重新生成」的舊訊息。
-        conversationData = conversationData.filter(msg => currentArticleSet.has(msg.element));
+        currentTurns.forEach((turn, i) => {
+          const key = getTurnKey(turn);
+          if (!key) return;
 
-        // 建立一個當前已存資料的 Set，方便快速查找
-        const existingElementsInConvData = new Set(conversationData.map(msg => msg.element));
+          const turnIndex = getTurnIndex(turn);
+          const isLastTurn = (i === currentTurns.length - 1);
+          const existing = byKey.get(key);
 
-        // 3. 新增新訊息：遍歷當前頁面上的 article，如果它不存在於我們已有的資料中，就新增它
-        for (const article of currentArticles) {
-          if (!existingElementsInConvData.has(article)) {
-            // 這是一個全新的訊息，處理並加入
-            const cloned = article.cloneNode(true);
-            cleanupChatGptClone(cloned);
-            
-            const roleContainer = cloned.querySelector("[data-message-author-role]");
-            const role = getChatGptRole(article, roleContainer);
-            const contentNode = getChatGptContentNode(cloned, role);
-            const finalText = (contentNode.innerText || contentNode.textContent || "").trim();
-
-            const newMessageData = {
-              id: generateId(),
-              role,
-              text: finalText,
-              markdown: getMarkdownFromMessage(contentNode, role === "user"),
-              element: article, // 保留對真實 DOM 的引用
-              selected: true
-            };
-            conversationData.push(newMessageData);
+          // 已收錄過：更新 DOM 引用；內容還在串流的話順便刷新快照
+          if (existing) {
+            existing.element = turn;
+            existing.turnIndex = turnIndex;
+            if (!existing.settled) captureTurn(existing, turn, isLastTurn);
+            return;
           }
-        }
 
-        // 可選：根據 DOM 順序排序，確保資料順序正確
-        conversationData.sort((a, b) => {
-            const position = a.element.compareDocumentPosition(b.element);
-            if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
-            if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
-            return 0;
+          // 同一個 turn 位置換了新的 message-id ＝ 訊息被重新生成或切換分支，
+          // 用新的取代舊的（原本靠「元素從 DOM 消失」判斷，虛擬化後已不可靠）
+          const superseded = conversationData.find(
+            m => m.turnIndex === turnIndex && !m.element.isConnected
+          );
+          if (superseded) {
+            byKey.delete(superseded.key);
+            conversationData.splice(conversationData.indexOf(superseded), 1);
+          }
+
+          const newMessageData = {
+            id: generateId(),
+            key,
+            turnIndex,
+            element: turn // 保留對真實 DOM 的引用（可能隨時被卸載）
+          };
+          captureTurn(newMessageData, turn, isLastTurn); // 先定出 role
+          newMessageData.selected = defaultSelected(newMessageData.role);
+          conversationData.push(newMessageData);
+          byKey.set(key, newMessageData);
         });
 
-        // 如果處於選擇模式，為新掃描到的訊息加上勾選框
+        // 依 turn 編號排序：已卸載的訊息沒有 DOM 位置可比，只能靠編號
+        conversationData.sort((a, b) => a.turnIndex - b.turnIndex);
+
+        // 如果處於選擇模式，為目前掛載中的訊息補上勾選框
         if (selectionModeEnabled) {
           conversationData.forEach(msg => {
-            if (!msg.element.querySelector(".chat-export-checkbox")) {
+            if (msg.element.isConnected && !msg.element.querySelector(".chat-export-checkbox")) {
               addCheckboxToMessage(msg.element, msg.id);
             }
           });
@@ -481,11 +676,13 @@
         Object.assign(selectBtn.style, fixedButtonStyle);
         selectBtn.addEventListener("click", async () => {
           selectionModeEnabled = !selectionModeEnabled;
-        
+
           if (selectionModeEnabled) {
+            globalSelectOverride = null; // 重新以 storedFilter 為基準
             await scanConversation();
             conversationData.forEach(msg => {
-              addCheckboxToMessage(msg.element, msg.id);
+              // 只有掛載中的訊息看得到勾選框，其餘會在捲到時由 scanConversation 補上
+              if (msg.element.isConnected) addCheckboxToMessage(msg.element, msg.id);
             });
             globalSelectChk.style.display = "inline-block";
             globalSelectChk.style.position = "absolute";
@@ -538,11 +735,12 @@
       globalSelectChk.checked = true;
       globalSelectChk.style.display = "none";
       globalSelectChk.addEventListener("change", () => {
+        // 記住使用者的意思，匯出前掃描新撈到的訊息才會跟著這個預設走
+        globalSelectOverride = globalSelectChk.checked;
+        // 作用在整份資料，不能只改畫面上掛載中的那十幾則
+        conversationData.forEach(m => (m.selected = globalSelectChk.checked));
         document.querySelectorAll(".chat-export-checkbox").forEach(cb => {
           cb.checked = globalSelectChk.checked;
-          const msgId = cb.getAttribute("data-msg-id");
-          const msg = conversationData.find(m => m.id === msgId);
-          if (msg) msg.selected = globalSelectChk.checked;
         });
       });
       selectRow.appendChild(globalSelectChk);
@@ -571,6 +769,7 @@
         }
         optBtn.addEventListener("click", () => {
           storedFilter = opt.value;
+          globalSelectOverride = null; // 交還給篩選條件決定
           Array.from(selectDropdownMenu.children).forEach(child => {
             child.style.backgroundColor = (child.textContent === opt.label ? "#777" : "");
           });
@@ -987,7 +1186,8 @@
         const { splitMode = false, maxHeight = 4096, containerElem: passedContainer } = options;
         let containerElem = passedContainer;
         if (!containerElem) {
-          const firstSelected = conversationData.find(m => m.selected);
+          // 只有還掛在 DOM 上的訊息才有 parentElement 可用
+          const firstSelected = conversationData.find(m => m.selected && m.element?.isConnected);
           if (firstSelected) containerElem = firstSelected.element.parentElement;
         }
         if (!containerElem) {
@@ -1004,27 +1204,27 @@
 
         // 使用 Turndown 轉 Markdown，並加入 GFM 支援（若已載入 turndown-plugin-gfm）
         conversationData.forEach(msg => {
-          const original = msg.element;
-          const cloned = original.cloneNode(true);
-        
-          // 1. 移除 <h5>/<h6> 的 sr-only
-          cleanupChatGptClone(cloned);
-        
-          // 2. 圖片處理：把原始圖片（已轉 base64）塞回 cloned
-          const originalImgs = original.querySelectorAll("img");
-          const clonedImgs = cloned.querySelectorAll("img");
-          clonedImgs.forEach((img, i) => {
-            if (originalImgs[i]) img.src = originalImgs[i].src;
-          });
-        
-          // 3. 只取「真正訊息」的容器（class 名太長我他媽也會背）
-          const contentDiv = getChatGptContentNode(cloned, msg.role);
-        
-          // 安全檢查：沒有的話就放空
-          msg.html = contentDiv ? contentDiv.innerHTML : "<p>（內容消失惹 QQ）</p>";
-        
+          // 1. 直接用掃描當下留下的快照：訊息很可能早就被虛擬化卸載了
+          const contentDiv = msg.snapshot;
+          if (!contentDiv) {
+            msg.html = "<p>（內容消失惹 QQ）</p>";
+            return;
+          }
+
+          // 2. 圖片處理：原節點還在畫面上的話，把已轉 base64 的 src 塞回快照
+          if (msg.element?.isConnected && msg.snapshotTurn) {
+            const originalImgs = msg.element.querySelectorAll("img");
+            const snapshotImgs = msg.snapshotTurn.querySelectorAll("img");
+            snapshotImgs.forEach((img, i) => {
+              if (originalImgs[i]) img.src = originalImgs[i].src;
+            });
+          }
+
+          // 3. 快照本身就已經是「真正訊息」的容器了
+          msg.html = contentDiv.innerHTML;
+
           // 4. markdown 轉換
-          msg.markdown = getMarkdownFromMessage(contentDiv || cloned, msg.role === "user");
+          msg.markdown = getMarkdownFromMessage(contentDiv, msg.role === "user");
 
         });
         window.__cocoCatchSplitMode = splitMode;
@@ -1050,7 +1250,8 @@
        * 匯出功能：收集對話後，交給 background 層處理
        *****************************************/
       async function doExport() {
-        await scanConversation();
+        // ChatGPT 只掛載視窗附近的訊息，得先把整串捲過一遍才拿得到完整對話
+        await sweepConversation();
         let selectedMessages = conversationData.filter(m => m.selected);
         if (selectedMessages.length === 0) {
           alert("沒有符合篩選條件的訊息！");
@@ -1059,10 +1260,18 @@
         const isImageExport = (storedFormat === "image");
         const MAX_HEIGHT = 4096;
         let splitMode = false;
-      
+
         if (isImageExport) {
-          // 只計算選取區段的高度
-          const totalHeight = selectedMessages.reduce((h, m) => h + (m.element?.offsetHeight || 0), 0);
+          // 只計算選取區段的高度。已被虛擬化卸載的訊息量不到高度，用已測得的平均值估算
+          const measured = selectedMessages
+            .map(m => (m.element?.isConnected ? m.element.offsetHeight : 0))
+            .filter(h => h > 0);
+          const avgHeight = measured.length
+            ? measured.reduce((a, b) => a + b, 0) / measured.length
+            : 200;
+          const totalHeight = Math.round(selectedMessages.reduce(
+            (h, m) => h + (m.element?.isConnected ? m.element.offsetHeight : avgHeight), 0
+          ));
           if (totalHeight > MAX_HEIGHT) {
             const ok = window.confirm(`選取的訊息高度 ${totalHeight}px 已超過 ${MAX_HEIGHT}px，將自動分張並壓縮下載，確定嗎？`);
             if (!ok) return;
