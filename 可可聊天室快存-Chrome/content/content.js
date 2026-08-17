@@ -898,8 +898,9 @@
       branchFmtMenu.style.left = "0";
       branchFmtMenu.style.display = "none";
       [
-        { val: "markdown", label: "全分支 → MARKDOWN" },
-        { val: "html",     label: "全分支 → HTML" }
+        { val: "markdown",     label: "全分支 → MARKDOWN" },
+        { val: "html",         label: "全分支 → HTML" },
+        { val: "sillytavern",  label: "全分支 → SILLYTAVERN" }
       ].forEach(fmt => {
         const item = document.createElement("div");
         item.textContent = fmt.label;
@@ -1389,24 +1390,36 @@
             userName: storedUserName,
             assistantName: storedCharacterName
           };
-          const asHtml = (storedBranchFormat === "html");
-          const result = asHtml
-            ? chatgptTree.toHtml(conv, treeOpts)
-            : chatgptTree.toMarkdown(conv, treeOpts);
-          const stats = result.stats;
+          const outputs = {
+            html: () => {
+              const r = chatgptTree.toHtml(conv, treeOpts);
+              return { text: r.html, ext: "html", mime: "text/html;charset=utf-8", stats: r.stats };
+            },
+            sillytavern: () => {
+              const r = chatgptTree.toSillyTavern(conv, treeOpts);
+              return { text: r.jsonl, ext: "jsonl", mime: "application/jsonl;charset=utf-8", stats: r.stats };
+            },
+            markdown: () => {
+              const r = chatgptTree.toMarkdown(conv, treeOpts);
+              return { text: r.markdown, ext: "md", mime: "text/markdown;charset=utf-8", stats: r.stats };
+            }
+          };
+          const build = outputs[storedBranchFormat] || outputs.markdown;
+          const { text, ext, mime, stats } = build();
 
           const base = chatgptTree.sanitizeFileName(conv.title || document.title);
-          chatgptTree.download(
-            asHtml ? result.html : result.markdown,
-            `${base}_全分支.${asHtml ? "html" : "md"}`,
-            asHtml ? "text/html;charset=utf-8" : "text/markdown;charset=utf-8"
-          );
+          chatgptTree.download(text, `${base}_全分支.${ext}`, mime);
 
-          alert(
-            `完成！\n\n訊息 ${stats.messages} 則\n` +
-            `分支點 ${stats.branchPoints} 個\n` +
-            `分支總數 ${stats.branches} 條`
-          );
+          let summary = `完成！\n\n訊息 ${stats.messages} 則\n分支點 ${stats.branchPoints} 個\n`;
+          if (ext === "jsonl") {
+            summary += `swipe 版本 ${stats.swipes} 條\n`;
+            if (stats.dropped > 0) {
+              summary += `未收錄 ${stats.dropped} 則（位於被捨棄分支的後續對話）`;
+            }
+          } else {
+            summary += `分支總數 ${stats.branches} 條`;
+          }
+          alert(summary);
         } catch (err) {
           console.error("全分支匯出失敗:", err);
           alert("全分支匯出失敗：" + (err && err.message ? err.message : err));
